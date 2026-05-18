@@ -13,7 +13,7 @@ print("Qt Network packages:", stdout.read().decode().strip() or "(none found)")
 
 # Build
 _, stdout, stderr = client.exec_command(
-    'cd ~/TOF2.0/qt_app && qmake tof_viewer.pro 2>&1 && make -j4 2>&1'
+    'cd ~/TOF3.0/nezha/qt_app && qmake tof_viewer.pro 2>&1 && make -j4 2>&1'
 )
 out = stdout.read().decode()
 err = stderr.read().decode()

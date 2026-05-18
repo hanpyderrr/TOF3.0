@@ -34,11 +34,11 @@ RK3568 SPI 外设  → SPI slave
 
 ```bash
 # acquisition
-cd ~/TOF3.0/acquisition
+cd ~/TOF3.0/nezha/acquisition
 g++ -std=c++17 -O2 -o sim_pf32 sim_pf32.cpp
 
 # qt_app
-cd ~/TOF3.0/qt_app
+cd ~/TOF3.0/nezha/qt_app
 qmake tof_viewer.pro && make -j4
 
 # 运行
@@ -57,20 +57,20 @@ nohup python3 -m uvicorn main:app --host 0.0.0.0 --port 8765 &
 ### 数据流
 
 ```
-PF32 → ExampleTOF/sim_pf32
-  → /tmp/depth.dat          (轻量帧，Qt实时读)
-  → ~/tof-data/raw_tcspc/  (TCSPC原始，2MB/帧)
-  → ~/tof-data/depth_queue/ (轻量帧队列)
+PF32 → nezha/acquisition/ExampleTOF 或 sim_pf32
+  → /tmp/depth.dat              (轻量帧，Qt实时读)
+  → ~/tof-data/raw_tcspc/      (TCSPC原始，2MB/帧)
+  → ~/tof-data/depth_queue/    (轻量帧队列)
 
-哪吒 Qt (tof_viewer)
+哪吒 Qt (nezha/qt_app/tof_viewer)
   → DepthWidget / PointCloudWidget (本地HDMI显示)
   → FeedbackController → LaserUart (激光控制)
   → SpiSyncer (后台线程) → SPI → RK3568
 
-RK3568
+RK3568 (rk3568/spi_receiver + rk3568/cloud_syncer)
   → SpiReceiver → ~/tof-buffer/
   → CloudSyncer → POST 云端 FastAPI (5G)
-  → 电机控制 (v1.0代码) ← SPI CMD=0x06 来自哪吒
+  → 电机控制 (rk3568/legacy 代码) ← SPI CMD=0x06 来自哪吒
 ```
 
 ### SPI CMD 定义
@@ -88,19 +88,23 @@ RK3568
 
 ```
 TOF3.0/
-├── acquisition/      C++ 采集（哪吒运行）
-├── qt_app/           Qt 主程序（哪吒运行）
-├── cloud/server/     FastAPI 云端
+├── nezha/            哪吒 NUC 侧代码
+│   ├── acquisition/  C++ 采集（sim_pf32, ExampleTOF, depth_proto.h）
+│   └── qt_app/       Qt 主程序（tof_viewer）
+├── rk3568/           RK3568 侧工程
+│   ├── legacy/       v1.0 遗留代码（电机、SPI slave 参考）
+│   ├── spi_receiver/ SPI slave 接收（待实现）
+│   └── cloud_syncer/ 5G 上传（待实现）
+├── cloud/            云端代码
+│   ├── server/       FastAPI 服务（main.py, models.py）
+│   └── ml/           ML 脚手架（云端GPU训练）
+│       ├── data/     数据集工具
+│       ├── models/   神经网络（Hist3DNet, DepthUNet）
+│       ├── train/    训练脚本
+│       ├── export/   ONNX 导出
+│       └── infer/    本地推理
 ├── deploy/           部署脚本（paramiko SFTP）
-├── ml/               ML 脚手架（云端GPU训练）
-│   ├── data/         数据集工具
-│   ├── models/       神经网络（Hist3DNet, DepthUNet）
-│   ├── train/        训练脚本
-│   ├── export/       ONNX 导出
-│   └── infer/        本地推理
-├── rk3568/           RK3568 侧工程（待新建）
-│   ├── spi_receiver/ SPI slave 接收
-│   └── cloud_syncer/ 5G 上传
+├── refs/             参考文档（PF32手册、RK3568文档）
 └── docs/             设计文档、算法思路、文献
 ```
 

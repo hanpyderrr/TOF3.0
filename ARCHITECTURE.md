@@ -41,37 +41,41 @@ RK3568（ARM，Ubuntu，5G 模块）
 ## 三、软件模块
 
 ```
-哪吒（采集 + 算法主机）
-├── 数据采集层（C/C++）
+nezha/（哪吒 NUC — 采集 + 算法主机）
+├── acquisition/（数据采集层，C/C++）
 │   ├── sim_pf32         模拟器，写 /tmp/depth.dat
-│   └── ExampleTOF       真实 PF32（待 P7）
+│   ├── ExampleTOF       真实 PF32（待 P7）
+│   └── depth_proto.h    TofFrame 协议结构体
 │
-├── Qt 应用（tof_viewer）
-│   ├── DepthParser      读 /tmp/depth.dat，CRC 校验
-│   ├── DepthWidget      2D 伪彩深度图
-│   ├── PointCloudWidget 3D 点云（OpenGL）
-│   ├── FeedbackController 实时反馈控制（每 10 帧）
-│   │   └── LaserUart    Modbus RTU → 激光强度
-│   ├── DataRecorder     本地数据落盘
-│   └── SpiSyncer        SPI master，异步推送数据给 RK3568
-│
-└── 算法层（待 P9/P10）
-    ├── algorithms/physical_processor.py  物理基线（背景减除/CFAR/Gaussian拟合）
-    ├── algorithms/fog_separator.py       EM 分离（lognormal+Gaussian）
-    └── algorithms/active_modulation.py   主动调制差分（创新，待 P13）
+└── qt_app/（Qt 应用 — tof_viewer）
+    ├── DepthParser      读 /tmp/depth.dat，CRC 校验
+    ├── DepthWidget      2D 伪彩深度图
+    ├── PointCloudWidget 3D 点云（OpenGL）
+    ├── FeedbackController 实时反馈控制（每 10 帧）
+    │   └── LaserUart    Modbus RTU → 激光强度
+    ├── DataRecorder     本地数据落盘
+    └── SpiSyncer        SPI master，异步推送数据给 RK3568（待 P9）
 
-RK3568（5G 网关 + 电机控制）
-├── SpiReceiver          SPI slave，接收哪吒推来的文件
-├── CloudSyncer          HTTP POST 到云端 FastAPI（5G 上传）
-├── MotorController      驱动 STM32 → 调焦电机（复用 v1.0 代码）
+rk3568/（RK3568 — 5G 网关 + 电机控制）
+├── legacy/              v1.0 遗留代码（电机驱动 / SPI 参考）
+├── spi_receiver/        SPI slave，接收哪吒推来的文件（待实现）
+├── cloud_syncer/        HTTP POST 到云端 FastAPI（5G 上传，待实现）
+├── MotorController      驱动 STM32 → 调焦电机
 └── 本地缓冲 ~/tof-buffer/
 
-云端（FastAPI + SQLite）
-├── GET  /api/health
-├── POST /api/frames/depth
-├── POST /api/frames/tcspc       （P9 新增）
-├── GET  /api/sessions
-└── GET  /api/sessions/{id}/frames
+cloud/（云端）
+├── server/（FastAPI + SQLite）
+│   ├── GET  /api/health
+│   ├── POST /api/frames/depth
+│   ├── POST /api/frames/tcspc   （P9 新增）
+│   ├── GET  /api/sessions
+│   └── GET  /api/sessions/{id}/frames
+└── ml/（ML 脚手架，云端 GPU 训练）
+    ├── data/     数据集工具（tof_dataset.py）
+    ├── models/   神经网络（Hist3DNet, DepthUNet）
+    ├── train/    训练脚本
+    ├── export/   ONNX 导出
+    └── infer/    本地推理（ONNX Runtime）
 ```
 
 ---
@@ -255,10 +259,10 @@ lognormal 雾散射峰 + Gaussian 目标峰 + EM 拟合
 ## 十、命令行参数
 
 ```bash
-./tof_viewer \
+# 在哪吒上运行（nezha/qt_app/tof_viewer）
+DISPLAY=:1 ./tof_viewer \
   --depth-file  /tmp/depth.dat \
   --laser-port  /dev/ttyUSB0 \
   --data-dir    ~/tof-data \
-  --cloud-url   http://localhost:8765 \
-  --api-key     <token>
+  --cloud-url   http://localhost:8765
 ```

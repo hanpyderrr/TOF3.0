@@ -18,9 +18,9 @@ run('pkill -f "sim_pf32" 2>/dev/null || true')
 time.sleep(2)
 
 # Start FastAPI from correct directory
-print("Starting FastAPI server from ~/TOF2.0/cloud/server/ ...")
+print("Starting FastAPI server from ~/TOF3.0/cloud/server/ ...")
 run(
-    'cd ~/TOF2.0/cloud/server && '
+    'cd ~/TOF3.0/cloud/server && '
     'nohup python3 -m uvicorn main:app --host 0.0.0.0 --port 8765 '
     '> /tmp/fastapi.log 2>&1 &'
 )
@@ -36,7 +36,7 @@ print(f"FastAPI log:\n{out}")
 
 # Start sim_pf32
 print("\nStarting sim_pf32...")
-run('nohup ~/TOF2.0/acquisition/sim_pf32 > /tmp/sim_pf32.log 2>&1 &')
+run('nohup ~/TOF3.0/nezha/acquisition/sim_pf32 > /tmp/sim_pf32.log 2>&1 &')
 time.sleep(3)
 out = run('ls -lh /tmp/depth.dat 2>&1')
 print(f"depth.dat: {out}")
@@ -45,7 +45,7 @@ print(f"depth.dat: {out}")
 print("\nStarting tof_viewer...")
 run(
     'mkdir -p ~/tof-data/depth_queue && '
-    'DISPLAY=:1 nohup ~/TOF2.0/qt_app/tof_viewer '
+    'DISPLAY=:1 nohup ~/TOF3.0/nezha/qt_app/tof_viewer '
     '--depth-file /tmp/depth.dat '
     '--data-dir ~/tof-data/depth_queue '
     '--cloud-url http://localhost:8765 '
