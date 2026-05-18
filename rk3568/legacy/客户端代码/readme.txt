@@ -1,0 +1,1 @@
+该工程使用QT实现，编译完成的可执行程序拷贝到RK3568中/myApp/mytest/qttest/SinglePhoton207_5 

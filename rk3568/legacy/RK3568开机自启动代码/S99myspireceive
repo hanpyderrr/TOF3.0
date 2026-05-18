@@ -1,0 +1,58 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          myspireceive
+# Required-Start:    mountvirtfs
+# Required-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: SPI Receiver Service
+### END INIT INFO
+
+PATH="/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin"
+APP_SCRIPT="/myApp/mytest/spireceive/spi_rev_slavemyloop.sh"
+PID_FILE="/var/run/myspireceive.pid"
+LOG_FILE="/var/log/myspireceive.log"
+
+case "$1" in
+    start)
+        echo -n "Starting SPI Receiver: "
+        if [ -f "$PID_FILE" ]; then
+            echo "already running (PID $(cat $PID_FILE))"
+            exit 0
+        fi
+
+        nohup "$APP_SCRIPT" >> "$LOG_FILE" 2>&1 &
+        echo $! > "$PID_FILE"
+        echo "done."
+        ;;
+    stop)
+        echo -n "Stopping SPI Receiver: "
+        if [ ! -f "$PID_FILE" ]; then
+            echo "not running"
+            exit 0
+        fi
+
+        kill -TERM $(cat "$PID_FILE") 2>/dev/null
+        rm -f "$PID_FILE"
+        echo "done."
+        ;;
+    restart)
+        $0 stop
+        sleep 1
+        $0 start
+        ;;
+    status)
+        if [ -f "$PID_FILE" ]; then
+            echo "Service is running (PID $(cat $PID_FILE))"
+            exit 0
+        else
+            echo "Service is not running"
+            exit 3
+        fi
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|status}"
+        exit 1
+esac
+
+exit 0

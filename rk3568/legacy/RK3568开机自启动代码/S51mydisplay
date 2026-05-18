@@ -1,0 +1,71 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          mydisplay
+# Required-Start:    mountvirtfs spireceive  # 确保在spireceive之后启动
+# Required-Stop:     
+# Should-Start:      dbus  # 如果QT需要DBus服务
+# Should-Stop:       
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Single Photon Contest Display
+### END INIT INFO
+
+PATH="/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin"
+APP_BIN="/myApp/mytest/qttest/SinglePhoton207_5"
+LOG_FILE="/var/log/mydisplay.log"  # 可选日志文件
+
+. /etc/profile
+
+# 等待Weston就绪（如果是Wayland）
+wait_for_weston() {
+    [ "${QT_QPA_PLATFORM}" = wayland ] && \
+    while [ ! -e ${XDG_RUNTIME_DIR}/wayland-0 ]; do
+        sleep 0.5
+        echo "Waiting for Wayland socket..." >> $LOG_FILE 2>&1
+    done
+}
+
+start_display() {
+    echo -n "Starting SinglePhoton Display..."
+    
+    # 环境检查
+    wait_for_weston
+    
+    # 启动程序（带日志记录）
+    $APP_BIN >> $LOG_FILE 2>&1 &
+    echo $! > /var/run/mydisplay.pid  # 保存PID
+    echo "done."
+}
+
+stop_display() {
+    echo -n "Stopping SinglePhoton Display..."
+    [ -f /var/run/mydisplay.pid ] && kill $(cat /var/run/mydisplay.pid) 2>/dev/null
+    rm -f /var/run/mydisplay.pid
+    echo "done."
+}
+
+case "$1" in
+    start)
+        start_display
+        ;;
+    stop)
+        stop_display
+        ;;
+    restart|reload)
+        stop_display
+        sleep 1
+        start_display
+        ;;
+    status)
+        if [ -f /var/run/mydisplay.pid ]; then
+            echo "Service is running (PID $(cat /var/run/mydisplay.pid))"
+        else
+            echo "Service is not running"
+        fi
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|status}"
+        exit 1
+esac
+
+exit 0

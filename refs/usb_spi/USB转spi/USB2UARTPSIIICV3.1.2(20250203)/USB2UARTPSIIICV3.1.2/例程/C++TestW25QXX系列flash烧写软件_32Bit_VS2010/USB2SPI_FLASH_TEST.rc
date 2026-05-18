@@ -1,0 +1,262 @@
+//Microsoft Developer Studio generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Chinese (P.R.C.) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
+#ifdef _WIN32
+LANGUAGE LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED
+#pragma code_page(936)
+#endif //_WIN32
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "#define _AFX_NO_SPLITTER_RESOURCES\r\n"
+    "#define _AFX_NO_OLE_RESOURCES\r\n"
+    "#define _AFX_NO_TRACKER_RESOURCES\r\n"
+    "#define _AFX_NO_PROPERTY_RESOURCES\r\n"
+    "\r\n"
+    "#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)\r\n"
+    "#ifdef _WIN32\r\n"
+    "LANGUAGE 4, 2\r\n"
+    "#pragma code_page(936)\r\n"
+    "#endif //_WIN32\r\n"
+    "#include ""res\\USB2SPI_FLASH_TEST.rc2""  // non-Microsoft Visual C++ edited resources\r\n"
+    "#include ""l.chs\\afxres.rc""          // Standard components\r\n"
+    "#endif\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDR_MAINFRAME           ICON    DISCARDABLE     "res\\USB2SPI_FLASH_TEST.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_ABOUTBOX DIALOG DISCARDABLE  0, 0, 235, 55
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "关于 USB2SPI_FLASH_TEST"
+FONT 9, "宋体"
+BEGIN
+    ICON            IDR_MAINFRAME,IDC_STATIC,11,17,20,20
+    LTEXT           "USB2SPI_FLASH_TEST 1.0 版",IDC_STATIC,40,10,119,8,
+                    SS_NOPREFIX
+    LTEXT           "版权所有 (C) 2018",IDC_STATIC,40,25,119,8
+    DEFPUSHBUTTON   "确定",IDOK,178,7,50,14,WS_GROUP
+END
+
+IDD_USB2SPI_FLASH_TEST_DIALOG DIALOGEX 0, 0, 431, 315
+STYLE DS_MODALFRAME | WS_MINIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION | 
+    WS_SYSMENU
+EXSTYLE WS_EX_APPWINDOW
+CAPTION "USB2SPI_FLASH_TEST"
+FONT 9, "宋体"
+BEGIN
+    GROUPBOX        "Flash页操作",IDC_STATIC,7,21,417,167
+    LTEXT           "第几页：",IDC_STATIC,331,55,33,8
+    EDITTEXT        IDC_EDIT_PAGE_ADDR,363,54,49,13,ES_AUTOHSCROLL | 
+                    ES_NUMBER
+    LTEXT           "起始地址：0x000000",IDC_STATIC_ADDR,331,39,73,8
+    PUSHBUTTON      "页数据读出",IDC_BUTTON_PAGE_READ,339,77,66,18
+    EDITTEXT        IDC_EDIT_USB_CONNECT_STATUS,7,7,109,12,ES_AUTOHSCROLL | 
+                    ES_READONLY | NOT WS_BORDER
+    PUSHBUTTON      "页数据写入",IDC_BUTTON_PAGE_WRITE,340,105,66,18
+    PUSHBUTTON      "扇区擦除(4K)",IDC_BUTTON_PAGE_ERASE,339,129,66,18
+    COMBOBOX        IDC_COMBO_FLASH_TYPE,73,207,51,51,CBS_DROPDOWNLIST | 
+                    WS_VSCROLL | WS_TABSTOP
+    GROUPBOX        "Flash整片操作",IDC_STATIC,7,193,417,101
+    LTEXT           "请选择Flash型号:",IDC_STATIC,7,209,65,8
+    EDITTEXT        IDC_EDIT_FILE_TO_FLASH_PATH,7,225,345,12,ES_AUTOHSCROLL
+    PUSHBUTTON      "选择文件路径",IDC_BUTTON_SELECT_FILE_PATH,354,225,63,11
+    PUSHBUTTON      "擦除整片",IDC_BUTTON_ERASE_FULL_CHIP,13,259,97,30
+    PUSHBUTTON      "读Flash到文件",IDC_BUTTON_FLASH_TO_FILE,159,259,97,30
+    PUSHBUTTON      "写文件到Flash",IDC_BUTTON_FILE_TO_FLASH,309,259,97,30
+    CONTROL         "Progress1",IDC_PROGRESS,"msctls_progress32",PBS_SMOOTH | 
+                    WS_BORDER,7,295,417,13
+    PUSHBUTTON      "扇区擦除(64K)",IDC_BUTTON_PAGE_ERASE64K,340,154,66,18
+    CONTROL         "写入前擦除扇区(4K)",IDC_CHECK_BEFOR_WRITE_ERZESE,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,310,248,88,10
+    LTEXT           "起始地址:",IDC_STATIC,165,212,37,8
+    EDITTEXT        IDC_EDIT_FLASH_START_ADDR,215,209,45,12,ES_AUTOHSCROLL
+    LTEXT           "0x",IDC_STATIC,204,212,9,8
+END
+
+
+#ifndef _MAC
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,0,0,1
+ PRODUCTVERSION 1,0,0,1
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x4L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "080404B0"
+        BEGIN
+            VALUE "CompanyName", "\0"
+            VALUE "FileDescription", "USB2SPI_FLASH_TEST Microsoft 基础类应用程序\0"
+            VALUE "FileVersion", "1, 0, 0, 1\0"
+            VALUE "InternalName", "USB2SPI_FLASH_TEST\0"
+            VALUE "LegalCopyright", "版权所有 (C) 2018\0"
+            VALUE "LegalTrademarks", "\0"
+            VALUE "OriginalFilename", "USB2SPI_FLASH_TEST.EXE\0"
+            VALUE "ProductName", "USB2SPI_FLASH_TEST 应用程序\0"
+            VALUE "ProductVersion", "1, 0, 0, 1\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x804, 1200
+    END
+END
+
+#endif    // !_MAC
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO DISCARDABLE 
+BEGIN
+    IDD_ABOUTBOX, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 228
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 48
+    END
+
+    IDD_USB2SPI_FLASH_TEST_DIALOG, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 424
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 308
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog Info
+//
+
+IDD_USB2SPI_FLASH_TEST_DIALOG DLGINIT
+BEGIN
+    IDC_COMBO_FLASH_TYPE, 0x403, 7, 0
+0x3257, 0x5f35, 0x3530, "\000" 
+    IDC_COMBO_FLASH_TYPE, 0x403, 7, 0
+0x3257, 0x5f35, 0x3031, "\000" 
+    IDC_COMBO_FLASH_TYPE, 0x403, 7, 0
+0x3257, 0x5f35, 0x3032, "\000" 
+    IDC_COMBO_FLASH_TYPE, 0x403, 7, 0
+0x3257, 0x5f35, 0x3034, "\000" 
+    IDC_COMBO_FLASH_TYPE, 0x403, 7, 0
+0x3257, 0x5f35, 0x3038, "\000" 
+    IDC_COMBO_FLASH_TYPE, 0x403, 7, 0
+0x3257, 0x5f35, 0x3631, "\000" 
+    IDC_COMBO_FLASH_TYPE, 0x403, 7, 0
+0x3257, 0x5f35, 0x3233, "\000" 
+    IDC_COMBO_FLASH_TYPE, 0x403, 7, 0
+0x3257, 0x5f35, 0x3436, "\000" 
+    IDC_COMBO_FLASH_TYPE, 0x403, 8, 0
+0x3257, 0x5f35, 0x3231, 0x0038, 
+    IDC_COMBO_FLASH_TYPE, 0x403, 8, 0
+0x3257, 0x5f35, 0x3532, 0x0036, 
+    0
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_ABOUTBOX            "关于 USB2SPI_FLASH_TEST(&A)..."
+END
+
+#endif    // Chinese (P.R.C.) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+#define _AFX_NO_SPLITTER_RESOURCES
+#define _AFX_NO_OLE_RESOURCES
+#define _AFX_NO_TRACKER_RESOURCES
+#define _AFX_NO_PROPERTY_RESOURCES
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
+#ifdef _WIN32
+LANGUAGE 4, 2
+#pragma code_page(936)
+#endif //_WIN32
+#include "res\USB2SPI_FLASH_TEST.rc2"  // non-Microsoft Visual C++ edited resources
+#include "l.chs\afxres.rc"          // Standard components
+#endif
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

@@ -1,0 +1,46 @@
+# Qt build artifacts
+qt_app/tof_viewer
+qt_app/*.o
+qt_app/moc_*.cpp
+qt_app/Makefile
+qt_app/.qmake.stash
+qt_app/tof_viewer.pro.user
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Codex workflow files
+AI_CODEX_PROMPT.md
+AI_CODEX_RESULT.md
+AI_REVIEW.md
+AI_HANDOFF.md
+
+# Data files
+*.tof
+*.db
+*.dat
+*.npy
+
+# Logs
+*.log
+
+# Build artifacts
+*.o
+*.a
+*.so
+*.out
+acquisition/sim_pf32
+rk3568/legacy/RK3568使用SPI接收数据代码/spi_rev_slavemyloop
+
+# Qt build (RK3568 legacy)
+rk3568/legacy/客户端代码/SinglePhoton207_5/build/
+rk3568/legacy/服务器代码/SinglePhotonContestServer_5/build/
+
+# Large binaries in refs (only track PDFs, not .so/.bin)
+refs/**/*.so
+refs/**/*.bin
+refs/**/*.exe
+refs/**/*.dll

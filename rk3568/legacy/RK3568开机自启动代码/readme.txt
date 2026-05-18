@@ -1,0 +1,3 @@
+开机自启动文件注意事项
+S51mydisplay这个脚本直接运行的就是RK3568上图形显示的程序（/myApp/mytest/qttest/SinglePhoton207_5）
+S99myspireceive这个脚本运行的是spi_rev_slavemyloop.sh脚本（这个脚本实际也是运行的spi_rev_slavemyloop可执行程序，/myApp/mytest/spireceive/spi_rev_slavemyloop），不能直接运行开发板中的spi_rev_slavemyloop可执行程序，否则不能开机运行，使用时需要把spi_rev_slavemyloop.sh转移到/myApp/mytest/spireceive/路径下

@@ -1,0 +1,105 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"jsonFile" : "directory-.-Debug-f5ebdc15457944623624.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.0"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "SampleCode",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "Cooled::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-Cooled-Debug-7f759c80189234cf5fce.json",
+					"name" : "Cooled",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "Correlator::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-Correlator-Debug-2d2e00020c281a5d857c.json",
+					"name" : "Correlator",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "DualCamera::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-DualCamera-Debug-d6773cfc37f833177341.json",
+					"name" : "DualCamera",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "Example::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-Example-Debug-60d2d9fa7552de6ae25a.json",
+					"name" : "Example",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "FW_Histogramming::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-FW_Histogramming-Debug-27b21a43585b26384ce7.json",
+					"name" : "FW_Histogramming",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "Footer::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-Footer-Debug-a95982cf96a8a1f2f3e0.json",
+					"name" : "Footer",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/ding/pf32/c++_sample_linux-1.5.23/PhotonForce/C++/build",
+		"source" : "/home/ding/pf32/c++_sample_linux-1.5.23/PhotonForce/C++"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 3
+	}
+}

@@ -1,0 +1,30 @@
+#!/bin/bash  
+
+# 定义要查找并关闭的进程名称  
+PROCESS_NAMES=("send_exec" "tsh_image.py" "display_clear.py" "test207final.sh")  
+
+# 遍历定义的进程名称数组  
+for PROCESS_NAME in "${PROCESS_NAMES[@]}"; do  
+    # 查找指定进程的 PID  
+    PID=$(pgrep -f "$PROCESS_NAME")  
+    
+    # 检查是否找到了进程  
+    if [ -z "$PID" ]; then  
+        echo "Process '$PROCESS_NAME' not found."  
+    else  
+        # 输出找到的进程 PID  
+        echo "Found Process '$PROCESS_NAME' with PID: $PID"  
+        
+        # 关闭进程  
+        kill $PID  
+        
+        # 检查进程是否成功关闭  
+        if [ $? -eq 0 ]; then  
+            echo "Process '$PROCESS_NAME' with PID $PID has been terminated."  
+        else  
+            echo "Failed to terminate process '$PROCESS_NAME' with PID $PID."  
+        fi  
+    fi  
+done  
+
+exit 0

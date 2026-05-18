@@ -1,0 +1,5 @@
+spi_rev_slavemyloop0402：能够接收数据，但是经常会卡住
+
+spi_rev_slavemyloop0411：最新版，能够流畅接收数据，并过滤问题数据，spi_rev_slavemyloop使用的是这个程序编译的（注意使用交叉编译工具，详见使用SPI转USB模块接收数据前的注意事项），spi_rev_slavemyloop拷贝到开发板的/myApp/mytest/spireceive/路径下
+
+“lianjieku”文件夹中存放的是libUSB2UARTSPIIIC.so动态链接库，该库和USB2UARTSPIIICDLL.h、USB2UARTSPIIICDLL0227.h联合使用

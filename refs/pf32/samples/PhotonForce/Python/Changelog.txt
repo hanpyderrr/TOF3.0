@@ -1,0 +1,16 @@
+0.1.1
+
+- Added methods for firmware histogramming.
+- Fixed PF_constructWithCustomFirmware() where only first letter of the path was being passed to the driver.
+- Fixed log call back which broke because of changes in the latest driver.
+
+0.1
+
+- Wrapper was previously supplied as unsupported sample code but is now being supported as an API. The installer version number will be used once it is wrapped up with it.
+- Added values of enumerated types and other constants from PF_types.h
+- Added comment to wrapper explaining how to correctly pass in a double as a parameter. Affects setExposure_us() and setFramePeriodAndOpticalExposure_us()
+- Can be run using Python3
+- Added SpeedTest.py to count speed and number of dropped frames for a given exposure setting.
+- Changed from camelCase for variable names to lower case separated by underscores to make it consistent with Python coding standards.
+
+

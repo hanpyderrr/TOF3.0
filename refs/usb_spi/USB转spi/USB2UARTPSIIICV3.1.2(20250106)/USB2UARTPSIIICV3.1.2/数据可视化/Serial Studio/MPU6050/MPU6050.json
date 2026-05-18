@@ -1,0 +1,151 @@
+{
+    "actions": [
+    ],
+    "decoder": 1,
+    "frameDetection": 2,
+    "frameEnd": ";",
+    "frameParser": "/**\n * Splits a data frame into an array of elements using a comma separator.\n *\n * Use this function to break a string (like \"value1,value2,value3\") into\n * individual pieces, which can then be displayed or processed in your project.\n *\n * @param[in]  frame   A string containing the data frame.\n *                     Example: \"value1,value2,value3\"\n * @return     An array of strings with the split elements.\n *             Example: [\"value1\", \"value2\", \"value3\"]\n *\n * @note You can declare global variables outside this function if needed\n *       for storing settings or keeping state between calls.\n */\n //这个函数的作用是将MPU6050发过来的数据转换成单精度的字符串\nfunction parse(frame) {\nlet dataArray = [];\n    for (let i = 0; i < frame.length; i += 28) {\n        let hexByteAx = frame.substring(i, i + 4);\n        let hexByteAy = frame.substring(i + 4, i + 8);\n        let hexByteAz = frame.substring(i + 8, i + 12);\n        \n        let hexByteT = frame.substring(i + 12, i + 16);\n\n        \n        let hexByteGx = frame.substring(i + 16, i + 20);\n        let hexByteGy = frame.substring(i + 20, i + 24);\n        let hexByteGz = frame.substring(i + 24, i + 28);\n\n        \n        //let decimalValueAx = ￼parseInt(hexByteAx, 16);\n        //let decimalValueAy = ￼parseInt(hexByteAy, 16);\n        //let decimalValueAz = ￼parseInt(hexByteAz, 16);\n        //let decimalValueT = ￼parseInt(hexByteT, 16);\n        //let decimalValueGx = ￼parseInt(hexByteGx, 16);\n        //let decimalValueGy = ￼parseInt(hexByteGy, 16);\n        //let decimalValueGz = ￼parseInt(hexByteGz, 16);\n        \n        let two;\n        let bitNum;\n        \n        two = parseInt(hexByteAx, 16).toString(2);\n        bitNum=hexByteAx.length*4;\n        if (two.length < bitNum) {\n          while (two.length < bitNum) {\n            two = \"0\" + two;\n          }\n        }\n        if (two.substring(0, 1) == \"0\") {\n  \t\t\ttwo = parseInt(two, 2);\n\t\t}\n        else {\n            let two_unsign = \"\";\n            two = parseInt(two, 2) - 1;//减一\n            two = two.toString(2);\n            two_unsign = two.substring(1, bitNum);//截取除了最高位以外的位\n            two_unsign = two_unsign.replace(/0/g, \"z\");//反码\n            two_unsign = two_unsign.replace(/1/g, \"0\");\n            two_unsign = two_unsign.replace(/z/g, \"1\");\n            two = parseInt(-two_unsign, 2);//补上负号\n        }\n        dataArray.push(two/16384.0);\n\n\n\t\ttwo = parseInt(hexByteAy, 16).toString(2);\n        bitNum=hexByteAy.length*4;\n        if (two.length < bitNum) {\n          while (two.length < bitNum) {\n            two = \"0\" + two;\n          }\n        }\n        if (two.substring(0, 1) == \"0\") {\n  \t\t\ttwo = parseInt(two, 2);\n\t\t}\n        else {\n            let two_unsign = \"\";\n            two = parseInt(two, 2) - 1;//减一\n            two = two.toString(2);\n            two_unsign = two.substring(1, bitNum);//截取除了最高位以外的位\n            two_unsign = two_unsign.replace(/0/g, \"z\");//反码\n            two_unsign = two_unsign.replace(/1/g, \"0\");\n            two_unsign = two_unsign.replace(/z/g, \"1\");\n            two = parseInt(-two_unsign, 2);//补上负号\n        }\n\t\tdataArray.push(two/16384.0);\n\n        two = parseInt(hexByteAz, 16).toString(2);\n        bitNum=hexByteAz.length*4;\n        if (two.length < bitNum) {\n          while (two.length < bitNum) {\n            two = \"0\" + two;\n          }\n        }\n        if (two.substring(0, 1) == \"0\") {\n  \t\t\ttwo = parseInt(two, 2);\n\t\t}\n        else {\n            let two_unsign = \"\";\n            two = parseInt(two, 2) - 1;//减一\n            two = two.toString(2);\n            two_unsign = two.substring(1, bitNum);//截取除了最高位以外的位\n            two_unsign = two_unsign.replace(/0/g, \"z\");//反码\n            two_unsign = two_unsign.replace(/1/g, \"0\");\n            two_unsign = two_unsign.replace(/z/g, \"1\");\n            two = parseInt(-two_unsign, 2);//补上负号\n        }\n\t\tdataArray.push(two/16384.0);\n        \n        two = parseInt(hexByteGx, 16).toString(2);\n        bitNum=hexByteGx.length*4;\n        if (two.length < bitNum) {\n          while (two.length < bitNum) {\n            two = \"0\" + two;\n          }\n        }\n        if (two.substring(0, 1) == \"0\") {\n  \t\t\ttwo = parseInt(two, 2);\n\t\t}\n        else {\n            let two_unsign = \"\";\n            two = parseInt(two, 2) - 1;//减一\n            two = two.toString(2);\n            two_unsign = two.substring(1, bitNum);//截取除了最高位以外的位\n            two_unsign = two_unsign.replace(/0/g, \"z\");//反码\n            two_unsign = two_unsign.replace(/1/g, \"0\");\n            two_unsign = two_unsign.replace(/z/g, \"1\");\n            two = parseInt(-two_unsign, 2);//补上负号\n        }\n\t\tdataArray.push(two/16.4);\n\t\t\n\t\t\n        two = parseInt(hexByteGy, 16).toString(2);\n        bitNum=hexByteGy.length*4;\n        if (two.length < bitNum) {\n          while (two.length < bitNum) {\n            two = \"0\" + two;\n          }\n        }\n        if (two.substring(0, 1) == \"0\") {\n  \t\t\ttwo = parseInt(two, 2);\n\t\t}\n        else {\n            let two_unsign = \"\";\n            two = parseInt(two, 2) - 1;//减一\n            two = two.toString(2);\n            two_unsign = two.substring(1, bitNum);//截取除了最高位以外的位\n            two_unsign = two_unsign.replace(/0/g, \"z\");//反码\n            two_unsign = two_unsign.replace(/1/g, \"0\");\n            two_unsign = two_unsign.replace(/z/g, \"1\");\n            two = parseInt(-two_unsign, 2);//补上负号\n        }\n\t\tdataArray.push(two/16.4);\n\t\t\n\t\t\n        two = parseInt(hexByteGz, 16).toString(2);\n        bitNum=hexByteGz.length*4;\n        if (two.length < bitNum) {\n          while (two.length < bitNum) {\n            two = \"0\" + two;\n          }\n        }\n        if (two.substring(0, 1) == \"0\") {\n  \t\t\ttwo = parseInt(two, 2);\n\t\t}\n        else {\n            let two_unsign = \"\";\n            two = parseInt(two, 2) - 1;//减一\n            two = two.toString(2);\n            two_unsign = two.substring(1, bitNum);//截取除了最高位以外的位\n            two_unsign = two_unsign.replace(/0/g, \"z\");//反码\n            two_unsign = two_unsign.replace(/1/g, \"0\");\n            two_unsign = two_unsign.replace(/z/g, \"1\");\n            two = parseInt(-two_unsign, 2);//补上负号\n        }\n\t\tdataArray.push(two/16.4);\n        console.log(two);\n        \n        \n\n        two = parseInt(hexByteT, 16).toString(2);\n        bitNum=hexByteT.length*4;\n        if (two.length < bitNum) {\n          while (two.length < bitNum) {\n            two = \"0\" + two;\n          }\n        }\n        if (two.substring(0, 1) == \"0\") {\n  \t\t\ttwo = parseInt(two, 2);\n\t\t}\n        else {\n            let two_unsign = \"\";\n            two = parseInt(two, 2) - 1;//减一\n            two = two.toString(2);\n            two_unsign = two.substring(1, bitNum);//截取除了最高位以外的位\n            two_unsign = two_unsign.replace(/0/g, \"z\");//反码\n            two_unsign = two_unsign.replace(/1/g, \"0\");\n            two_unsign = two_unsign.replace(/z/g, \"1\");\n            two = parseInt(-two_unsign, 2);//补上负号\n        }\n\t\tdataArray.push(two/340.0+36.53);\n        \n\n}\n    return dataArray;\n}",
+    "frameStart": "$",
+    "groups": [
+        {
+            "datasets": [
+                {
+                    "alarm": 0,
+                    "fft": false,
+                    "fftSamples": 1024,
+                    "fftSamplingRate": 100,
+                    "graph": true,
+                    "index": 1,
+                    "led": false,
+                    "ledHigh": 1,
+                    "log": false,
+                    "max": 0,
+                    "min": 0,
+                    "title": "Accelerometer X",
+                    "units": "m/s²",
+                    "value": "--.--",
+                    "widget": "x"
+                },
+                {
+                    "alarm": 0,
+                    "fft": false,
+                    "fftSamples": 1024,
+                    "fftSamplingRate": 100,
+                    "graph": true,
+                    "index": 2,
+                    "led": false,
+                    "ledHigh": 1,
+                    "log": false,
+                    "max": 0,
+                    "min": 0,
+                    "title": "Accelerometer Y",
+                    "units": "m/s²",
+                    "value": "--.--",
+                    "widget": "y"
+                },
+                {
+                    "alarm": 0,
+                    "fft": false,
+                    "fftSamples": 1024,
+                    "fftSamplingRate": 100,
+                    "graph": true,
+                    "index": 3,
+                    "led": false,
+                    "ledHigh": 1,
+                    "log": false,
+                    "max": 0,
+                    "min": 0,
+                    "title": "Accelerometer Z",
+                    "units": "m/s²",
+                    "value": "--.--",
+                    "widget": "z"
+                }
+            ],
+            "title": "Accelerometer",
+            "widget": "accelerometer"
+        },
+        {
+            "datasets": [
+                {
+                    "alarm": 0,
+                    "fft": false,
+                    "fftSamples": 1024,
+                    "fftSamplingRate": 100,
+                    "graph": true,
+                    "index": 4,
+                    "led": false,
+                    "ledHigh": 1,
+                    "log": false,
+                    "max": 0,
+                    "min": 0,
+                    "title": "Gyro X",
+                    "units": "deg/s",
+                    "value": "--.--",
+                    "widget": "x"
+                },
+                {
+                    "alarm": 0,
+                    "fft": false,
+                    "fftSamples": 1024,
+                    "fftSamplingRate": 100,
+                    "graph": true,
+                    "index": 5,
+                    "led": false,
+                    "ledHigh": 1,
+                    "log": false,
+                    "max": 0,
+                    "min": 0,
+                    "title": "Gyro Y",
+                    "units": "deg/s",
+                    "value": "--.--",
+                    "widget": "y"
+                },
+                {
+                    "alarm": 0,
+                    "fft": false,
+                    "fftSamples": 1024,
+                    "fftSamplingRate": 100,
+                    "graph": true,
+                    "index": 6,
+                    "led": false,
+                    "ledHigh": 1,
+                    "log": false,
+                    "max": 0,
+                    "min": 0,
+                    "title": "Gyro Z",
+                    "units": "deg/s",
+                    "value": "--.--",
+                    "widget": "z"
+                }
+            ],
+            "title": "Gyroscope",
+            "widget": "gyro"
+        },
+        {
+            "datasets": [
+                {
+                    "alarm": 40,
+                    "fft": false,
+                    "fftSamples": 1024,
+                    "fftSamplingRate": 100,
+                    "graph": false,
+                    "index": 7,
+                    "led": false,
+                    "ledHigh": 1,
+                    "log": false,
+                    "max": 100,
+                    "min": 0,
+                    "title": "Temperature",
+                    "units": "℃",
+                    "value": "--.--",
+                    "widget": "bar"
+                }
+            ],
+            "title": "Temperature",
+            "widget": ""
+        }
+    ],
+    "mapTilerApiKey": "",
+    "thunderforestApiKey": "",
+    "title": "MPU6050"
+}

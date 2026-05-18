@@ -1,0 +1,7 @@
+（1）/etc/init.d/   路径下添加了两个开机自启动文件：S51mydisplay和S99myspireceive，分别用于执行客户端程序和数据接收程序
+（2）/myApp/mytest/spireceive中文件包括received.dat ，spi_rev_slavemyloop，spi_rev_slavemyloop.sh ，USB2UARTSPIIICDLL.h
+received.dat就是运行数据接收程序后创建的接收哪吒板子数据的文件
+spi_rev_slavemyloop是数据接收的可执行程序
+spi_rev_slavemyloop.sh是运行spi_rev_slavemyloop程序的脚本（spi_rev_slavemyloop程序不能直接运行，会出问题，必须运行这个脚本）
+USB2UARTSPIIICDLL.h是运行spi_rev_slavemyloop需要用到的头文件，相应的链接库（libUSB2UARTSPIIIC.so）拷贝在/lib路径下
+（3）/myApp/mytest/qttest中文件是SinglePhoton207_5可执行文件，用于客户端图像显示、数据传输等
