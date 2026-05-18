@@ -136,4 +136,6 @@ TOF3.0/
 - TCSPC 原始约 2MB/帧，本地先存，SPI 空闲期批传
 - 详细算法思路：`docs/active_modulation_separation_algorithm.md`
 - RK3568 接入方案：`docs/rk3568_reintegration_architecture.md`
+- RK3568 连接现状（串口 COM7）：`docs/rk3568_connection.md`
+- RK3568 当前无网络（无 SIM 卡），串口 1500000 baud 是唯一通道，Buildroot 系统，root 无密码
 - 完整架构：`ARCHITECTURE.md`
