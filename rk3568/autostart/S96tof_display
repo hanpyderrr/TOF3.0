@@ -1,0 +1,55 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          tof_display
+# Required-Start:    mountvirtfs tof_spi_receiver
+# Should-Start:      dbus
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: TOF3.0 MIPI 屏实时深度图显示（Qt）
+### END INIT INFO
+# 仿 legacy S51mydisplay。在 spi_receiver(S95) 之后启动。
+# 运行环境/平台沿用 legacy SinglePhoton207_5（不显式设 QT_QPA_PLATFORM）。
+
+PATH="/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin"
+APP="/myApp/tof3/qt_display/qt_display"
+FRAME="/tmp/received.dat"
+PID_FILE="/var/run/tof_display.pid"
+LOG_FILE="/var/log/tof_display.log"
+
+. /etc/profile
+
+case "$1" in
+    start)
+        echo -n "Starting tof_display: "
+        if [ -f "$PID_FILE" ]; then
+            echo "already running (PID $(cat $PID_FILE))"
+            exit 0
+        fi
+        "$APP" "$FRAME" >> "$LOG_FILE" 2>&1 &
+        echo $! > "$PID_FILE"
+        echo "done."
+        ;;
+    stop)
+        echo -n "Stopping tof_display: "
+        [ -f "$PID_FILE" ] && kill $(cat "$PID_FILE") 2>/dev/null
+        rm -f "$PID_FILE"
+        echo "done."
+        ;;
+    restart)
+        $0 stop
+        sleep 1
+        $0 start
+        ;;
+    status)
+        if [ -f "$PID_FILE" ]; then
+            echo "Running (PID $(cat $PID_FILE))"
+        else
+            echo "Not running"
+            exit 3
+        fi
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|status}"
+        exit 1
+esac
+exit 0

@@ -44,3 +44,13 @@ refs/**/*.so
 refs/**/*.bin
 refs/**/*.exe
 refs/**/*.dll
+
+# P-RT 实时显示链路构建产物（保留源码/Makefile/脚本，不提交编译产物）
+# 注：手写 Makefile 在 spi_syncer/spi_receiver，须保留；qt_display/Makefile 是 qmake 生成物
+nezha/spi_syncer/spi_syncer
+rk3568/spi_receiver/spi_receiver
+rk3568/qt_display/qt_display
+rk3568/qt_display/Makefile
+rk3568/qt_display/moc_*.cpp
+rk3568/qt_display/moc_predefs.h
+rk3568/qt_display/.qmake.stash

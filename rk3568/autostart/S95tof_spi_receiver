@@ -1,0 +1,51 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          tof_spi_receiver
+# Required-Start:    mountvirtfs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: TOF3.0 SPI 深度帧接收（裸 TofFrame → /tmp/received.dat）
+### END INIT INFO
+# 仿 legacy S99myspireceive。先于显示启动（S95 < S96）。
+
+PATH="/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin"
+APP="/myApp/tof3/spi_receiver/spi_receiver"
+OUT="/tmp/received.dat"
+PID_FILE="/var/run/tof_spi_receiver.pid"
+LOG_FILE="/var/log/tof_spi_receiver.log"
+
+case "$1" in
+    start)
+        echo -n "Starting tof_spi_receiver: "
+        if [ -f "$PID_FILE" ]; then
+            echo "already running (PID $(cat $PID_FILE))"
+            exit 0
+        fi
+        nohup "$APP" "$OUT" >> "$LOG_FILE" 2>&1 &
+        echo $! > "$PID_FILE"
+        echo "done."
+        ;;
+    stop)
+        echo -n "Stopping tof_spi_receiver: "
+        [ -f "$PID_FILE" ] && kill -TERM $(cat "$PID_FILE") 2>/dev/null
+        rm -f "$PID_FILE"
+        echo "done."
+        ;;
+    restart)
+        $0 stop
+        sleep 1
+        $0 start
+        ;;
+    status)
+        if [ -f "$PID_FILE" ]; then
+            echo "Running (PID $(cat $PID_FILE))"
+        else
+            echo "Not running"
+            exit 3
+        fi
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|status}"
+        exit 1
+esac
+exit 0

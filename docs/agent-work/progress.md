@@ -18,8 +18,15 @@
 | RK3568 5G | ✅ 插 SIM 冷启动后已注册联网（暂缓接入，本阶段不用） |
 | 架构锁定 + 文档重写 | ✅ ARCHITECTURE/CLAUDE/framework/README/progress 已按锁定决策重写 |
 | cloud_syncer 深度上传 | ✅ 已实现+离线 e2e；**归暂缓阶段，保留不动** |
-| 哪吒 SpiSyncer（实时深度发送端） | ⬜ **本阶段新写** |
-| RK3568 spi_receiver + Qt MIPI 显示 | ⬜ **本阶段新写**（交叉编译） |
+| P-RT 实施计划 | ✅ `docs/realtime_display_plan.md`（裸帧/文件桥/7步，已批准）|
+| 交叉编译环境 | ✅ `~/rk3568_linux_sdk` Buildroot：gcc 10.3.0 + qmake Qt5.15.2 sysroot，与板同源 |
+| 哪吒 spi_syncer（实时深度发送端） | ✅ `nezha/spi_syncer/` 已实现，x86_64 编译通过（移植 spisendTOF + seq 去重）|
+| RK3568 spi_receiver | ✅ `rk3568/spi_receiver/` 已实现，aarch64 交叉 + x86_64 编译通过；deps .so 已入库 |
+| RK3568 Qt MIPI 显示程序 | ✅ `rk3568/qt_display/` 已实现，SDK qmake 交叉编译通过（Qt5.15.2）|
+| RK3568 自启脚本 | ✅ `rk3568/autostart/S95tof_spi_receiver`+`S96tof_display`（文件桥 /tmp/received.dat）|
+| 板上联调（数据链路） | ✅ **端到端实测通过**：哪吒 sim→spi_syncer→SPI→适配器→spi_receiver→received.dat(2070B,seq 递增 ~2fps,crc 全过) |
+| 板上联调（数据链路·二轮） | ✅ **USB reset 后再次端到端实测通过**：seq 实时持续递增（564→590→830） |
+| 板上联调（屏显/稳定性） | ⚠️ **未决**：I2 QPA 已定位到 `wayland`（旧 app 是 Weston 客户端，非 linuxfb），进程层已修（不崩/连上 Weston/无 QPA 错）**但屏仍黑屏**，更深层问题未解；I1 已得 USB unbind/bind 复位手段（未内置进重连）。详见 `docs/realtime_display_plan.md` §9 / §9.6 |
 
 ---
 
@@ -73,6 +80,25 @@
 ---
 
 ## 已完成工作记录
+
+### 2026-05-19 — P-RT 二轮联调（清现场 + USB reset + QPA 定位 + 仓库整理）
+
+**用户要求：** 清现场重做 → 思考 I1/I2 原因与解法 → 以"球状突出"图为例传到 3568 并 Qt 显示 → 黑屏后更新 md + 整理目录 + 推 GitHub
+
+**做了：**
+- 清两机残留（哪吒 sim_pf32/spi_syncer；RK3568 旧 wedged spi_receiver/qt_display）
+- 三件套全部重新交叉编译 + 重部署（板上二进制曾丢失）：spi_syncer(x86_64)/spi_receiver(aarch64)/qt_display(aarch64)，md5 校验一致
+- **I1**：根因＝USB-SPI 适配器（CDC-ACM，sysfs `2-1`）USB 层 wedge（设备号反复递增佐证）；
+  验证有效复位手段＝`unbind`/`bind` sysfs 端口强制重枚举（与控制台 CH340 不同端口，安全）。未内置进 spi_receiver 重连
+- **数据链路 USB reset 后再次端到端实测通过**：received.dat 2070B/TOFP，seq 564→590→830 持续递增
+- **I2**：定位旧 app（`S51mydisplay` → `. /etc/profile` → `/etc/profile.d/weston.sh`）实为
+  `QT_QPA_PLATFORM=wayland`+`XDG_RUNTIME_DIR=/var/run` 的 **Weston wayland 客户端**（非 linuxfb，纠正旧文档）。
+  用对平台后 qt_display 进程稳定不崩、连上 Weston、无 QPA 错——**但用户目视仍黑屏**：进程层修复但无可见输出，I2 未解（更深层）
+- 仓库整理：补 `.gitignore`（新目录二进制/qmake 生成物）、清构建产物、提交源码+脚本+文档推 GitHub
+
+**验证：** 数据链路＝received.dat 字节/seq 实测通过；屏显＝用户目视黑屏（**未声称修复**）
+
+**遗留：** I2 黑屏更深层排查（窗口 map/几何/重绘/wayland buffer，候选见 plan §9.6.3）；I1 USB reset 内置自动化；S95/S96 自启与旧自启切换
 
 ### 2026-05-19 — 联调连通 + 架构锁定 + 全项目文档重写
 
@@ -283,6 +309,9 @@ chmod +x binary_file
 | `rk3568/README.md` + spi_receiver/cloud_syncer/motor/autostart README | 同步锁定决策 | ✅ 2026-05-19 |
 | `docs/登录方式.md` / `docs/spi硬件接口.md` | 新增（两机登录 + SPI 硬件接口+实测） | ✅ 2026-05-19 |
 | `docs/rk3568_reintegration_architecture.md` | 横幅补新推翻项 | ✅ 2026-05-19 |
-| 哪吒 `qt_app` 新 SpiSyncer（实时深度发送端） | 本阶段新写 | ⬜ |
-| `rk3568/spi_receiver/spi_receiver.c` + RK3568 Qt 显示程序 | 本阶段新写（交叉编译） | ⬜ |
+| `nezha/spi_syncer/` (spi_syncer.c+Makefile+README) | 实时深度发送端，移植 spisendTOF+seq 去重 | ✅ 2026-05-19 x86_64 编译+联调过 |
+| `rk3568/spi_receiver/` (spi_receiver.c+Makefile+deps+README) | SPI slave→/tmp/received.dat，SIGHUP-ignore | ✅ 2026-05-19 aarch64 交叉+联调过 |
+| `rk3568/qt_display/` (main/mainwindow/depthParser/depthWidget+.pro) | Qt MIPI 显示，wayland 客户端 | ✅ 编译+部署；⚠️ 屏显黑屏未解(plan §9.6) |
+| `rk3568/autostart/S95tof_spi_receiver`+`S96tof_display` | BusyBox init.d 自启（未安装） | ✅ 已写，未装 |
+| `.gitignore` | 补新目录二进制/qmake 生成 Makefile·moc·.qmake.stash | ✅ 2026-05-19 |
 | `nezha/qt_app/cloudsyncer.*` | 维持本地开发用，不改 | — |
