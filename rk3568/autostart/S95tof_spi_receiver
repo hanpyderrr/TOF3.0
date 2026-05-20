@@ -14,6 +14,16 @@ OUT="/tmp/received.dat"
 PID_FILE="/var/run/tof_spi_receiver.pid"
 LOG_FILE="/var/log/tof_spi_receiver.log"
 
+usb_adapter_reset() {
+    # cdc_acm grabs 0483:5740 as ACM serial; libUSB2UARTSPIIIC needs raw libusb access
+    rmmod cdc_acm 2>/dev/null || true
+    # 适配器 USB ID 0483:5740，通常在 bus2 port1
+    echo 2-1 > /sys/bus/usb/drivers/usb/unbind 2>/dev/null || true
+    sleep 1
+    echo 2-1 > /sys/bus/usb/drivers/usb/bind 2>/dev/null || true
+    sleep 2
+}
+
 case "$1" in
     start)
         echo -n "Starting tof_spi_receiver: "
@@ -21,6 +31,7 @@ case "$1" in
             echo "already running (PID $(cat $PID_FILE))"
             exit 0
         fi
+        usb_adapter_reset
         nohup "$APP" "$OUT" >> "$LOG_FILE" 2>&1 &
         echo $! > "$PID_FILE"
         echo "done."

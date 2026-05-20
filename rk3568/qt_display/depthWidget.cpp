@@ -1,9 +1,16 @@
 #include "depthWidget.h"
+#include <QDebug>
 #include <QPainter>
+#include <QSizePolicy>
 #include <cmath>
 
 static const int SENSOR_W = 32;
 static const int SENSOR_H = 32;
+
+namespace {
+bool g_hasDepthFrame = false;
+int g_paintCount = 0;
+}
 
 DepthWidget::DepthWidget(QWidget *parent)
     : QWidget(parent)
@@ -12,6 +19,10 @@ DepthWidget::DepthWidget(QWidget *parent)
 {
     m_image.fill(Qt::black);
     setMinimumSize(SENSOR_W * 6, SENSOR_H * 6);
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    setAutoFillBackground(false);
+    setAttribute(Qt::WA_OpaquePaintEvent, true);
+    setAttribute(Qt::WA_NoSystemBackground, true);
 }
 
 void DepthWidget::setMaxRange(uint16_t mm)
@@ -40,6 +51,7 @@ QRgb DepthWidget::depthToColor(float norm)
 void DepthWidget::updateDepth(const uint16_t *depths, int count)
 {
     if (count != SENSOR_W * SENSOR_H) return;
+    g_hasDepthFrame = true;
 
     for (int row = 0; row < SENSOR_H; ++row) {
         for (int col = 0; col < SENSOR_W; ++col) {
@@ -62,6 +74,18 @@ void DepthWidget::updateDepth(const uint16_t *depths, int count)
 
 void DepthWidget::paintEvent(QPaintEvent *)
 {
+    if ((g_paintCount++ % 60) == 0)
+        qInfo() << "qt_display: DepthWidget paintEvent"
+                << "count =" << g_paintCount
+                << "hasDepthFrame =" << g_hasDepthFrame
+                << "rect =" << rect();
+
     QPainter painter(this);
+    if (!g_hasDepthFrame) {
+        painter.fillRect(rect(), QColor(24, 72, 128));
+        const QRect proofRect(width() / 4, height() / 4, width() / 2, height() / 2);
+        painter.fillRect(proofRect, QColor(0, 220, 80));
+        return;
+    }
     painter.drawImage(rect(), m_image);
 }

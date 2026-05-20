@@ -26,7 +26,7 @@ TOF 单光子 3.0：双机协作架构（已锁定决策见 `ARCHITECTURE.md` / 
 
 | 设备 | 角色 | 连接 |
 |------|------|------|
-| 哪吒 NUC | 主机，x86_64，192.168.31.79，**生产无网（网线仅调试）** | SSH: ding/1234（paramiko，无 sshpass）|
+| 哪吒 NUC | 主机，x86_64，192.168.31.127，**生产无网（网线仅调试）** | SSH: ding/1234（paramiko，无 sshpass）|
 | RK3568 | aarch64 Buildroot，实时 Qt MIPI 显示+电机+5G | 串口 /dev/ttyUSB0@1500000；USB 接 SPI 适配器 |
 | USB转SPI 适配器 | STM32 方案，USB 0483:5740（物理链路实测通） | 哪吒 SPI 引脚 ↔ 适配器，适配器 USB ↔ RK3568 |
 | PF32 | 32×32 SPAD，TCSPC 55ps/bin | USB（Opal Kelly）→ 哪吒 |

@@ -12,7 +12,7 @@
 | 节点 | 状态 |
 |------|------|
 | 哪吒侧代码（P1–P6, P5a/b/c） | ✅ 已迁移；P5b/c（哪吒 CloudSyncer/FastAPI）仅本地开发用 |
-| 哪吒 SSH 连通 | ✅ 192.168.31.79 ding/1234（paramiko；调试期有网） |
+| 哪吒 SSH 连通 | ✅ 192.168.31.127 ding/1234（paramiko；调试期有网） |
 | RK3568 串口连通 | ✅ `/dev/ttyUSB0`@1500000（CH340 须慢写，见 docs/spi硬件接口.md） |
 | **SPI 物理链路 哪吒→适配器→RK3568** | ✅ **实测逐字节通**（旧文本协议验证，详见 docs/spi硬件接口.md） |
 | RK3568 5G | ✅ 插 SIM 冷启动后已注册联网（暂缓接入，本阶段不用） |
@@ -26,7 +26,7 @@
 | RK3568 自启脚本 | ✅ `rk3568/autostart/S95tof_spi_receiver`+`S96tof_display`（文件桥 /tmp/received.dat）|
 | 板上联调（数据链路） | ✅ **端到端实测通过**：哪吒 sim→spi_syncer→SPI→适配器→spi_receiver→received.dat(2070B,seq 递增 ~2fps,crc 全过) |
 | 板上联调（数据链路·二轮） | ✅ **USB reset 后再次端到端实测通过**：seq 实时持续递增（564→590→830） |
-| 板上联调（屏显/稳定性） | ⚠️ **未决**：I2 QPA 已定位到 `wayland`（旧 app 是 Weston 客户端，非 linuxfb），进程层已修（不崩/连上 Weston/无 QPA 错）**但屏仍黑屏**，更深层问题未解；I1 已得 USB unbind/bind 复位手段（未内置进重连）。详见 `docs/realtime_display_plan.md` §9 / §9.6 |
+| 板上联调（屏显/稳定性） | ⚠️ Qt 源码已修复（fullscreen+渲染），**尚未交叉编译部署**；weston.ini transform 待验证 |
 
 ---
 
@@ -59,7 +59,7 @@
 
 | 接口 | 状态 | 备注 |
 |------|------|------|
-| 哪吒 enp1s0 | UP，192.168.31.79，可上公网 | **生产无网，当前网线仅调试**；生产态数据不经哪吒上云 |
+| 哪吒 enp1s0 | UP，192.168.31.127，可上公网 | **生产无网，当前网线仅调试**；生产态数据不经哪吒上云 |
 | RK3568 usb0 (5G) | ✅ 插 SIM 冷启动后已注册联网（NAT 出口） | China Telecom；**本阶段暂缓接入** |
 | RK3568 eth0/eth1 | DOWN | 未接网线 |
 
@@ -99,6 +99,26 @@
 **验证：** 数据链路＝received.dat 字节/seq 实测通过；屏显＝用户目视黑屏（**未声称修复**）
 
 **遗留：** I2 黑屏更深层排查（窗口 map/几何/重绘/wayland buffer，候选见 plan §9.6.3）；I1 USB reset 内置自动化；S95/S96 自启与旧自启切换
+
+### 2026-05-20 — I2 黑屏根治 + autostart 修复 + e2e 脚本
+
+**用户要求：** 按解耦思路排查 I2 黑屏，先确认显示层，再接数据层
+
+**做了：**
+- **I2 黑屏已根治** ✅：手动起 weston → 写合法 TofFrame 合成帧 `/tmp/received.dat`（base64 串口传入） → 起 qt_display；用户目视 **红/蓝渐变热图** 正常显示。根因=weston 没有随 qt_display 一起重启（wayland-0 是僵尸 socket），而不是渲染逻辑问题
+- 诊断过程：qt.qpa.wayland 日志确认 Qt 已连上 weston 并持续 flush 1920×1080 buffer（`handleUpdate` 可见），`libQt5WaylandClient.so` 已 map，`/dev/dri/card0` + `/dev/mali0` 均已打开
+- **S95tof_spi_receiver** 新增 USB adapter reset（unbind 2-1 / bind 2-1）
+- **S96tof_display** 新增 `wait_for_weston()` 循环（等 wayland-0 socket 最多 10s），防止 qt_display 在 weston 就绪前启动
+- **deploy/e2e_test.py** 新建：SSH 哪吒 + 串口 RK3568；检查 spidev1.0、启 sim_pf32 + spi_syncer、USB reset + spi_receiver、轮询 received.dat mtime；支持 `--display-only` / `--no-spi` 选项
+- 哪吒 IP 确认：192.168.31.127（wlo1 wireless，DHCP；当前 SSH 正常）
+
+**验证：** 用户目视红/蓝渐变热图 ✅；autostart 修改已写入源码未部署到板上
+
+**遗留：**
+1. 哪吒 `/dev/spidev1.0` 仍不存在（SSH 超时未完成诊断，需下次运行 `deploy/setup_spidev.sh` 确认原因）
+2. `deploy/e2e_test.py` 未实测（spidev 未通则 SPI 链路测试会 skip）
+3. 新 autostart 脚本（S95/S96）未部署到 RK3568 的 `/etc/init.d/`（需 serial 传入并 chmod +x）
+4. `S51mydisplay`（旧）还在，需要禁用或替换
 
 ### 2026-05-19 — 联调连通 + 架构锁定 + 全项目文档重写
 
@@ -315,3 +335,45 @@ chmod +x binary_file
 | `rk3568/autostart/S95tof_spi_receiver`+`S96tof_display` | BusyBox init.d 自启（未安装） | ✅ 已写，未装 |
 | `.gitignore` | 补新目录二进制/qmake 生成 Makefile·moc·.qmake.stash | ✅ 2026-05-19 |
 | `nezha/qt_app/cloudsyncer.*` | 维持本地开发用，不改 | — |
+
+### 2026-05-20 — Qt 源码修复（fullscreen + 渲染）+ 交叉编译准备
+
+**用户要求：** 分析黑屏+非全屏+颠倒原因，Codex 给出代码修复
+
+**做了：**
+- 确认板上 binary 为 aarch64 ELF（`file` 命令串口验证），正点原子 gnueabihf 工具链不兼容，需在有 SDK 的 Linux 机器交叉编译
+- **rk3568/qt_display/main.cpp**：新增 `Qt::FramelessWindowHint`，通过 `QTimer::singleShot(0,...)` 延迟 `showFullScreen()`，解决 Wayland compositor 未处理 fullscreen 请求的时序问题（xdg_toplevel configure 返回 WindowNoState）
+- **rk3568/qt_display/mainwindow.cpp**：移除 `setStyleSheet("background:#000;")` QMainWindow 全局 stylesheet（Wayland/EGL 下会级联覆盖子 widget 绘制），改为 central widget palette 黑底
+- **rk3568/qt_display/depthWidget.cpp**：构造函数增加 `setAutoFillBackground(false)`、`WA_OpaquePaintEvent`、`WA_NoSystemBackground`，声明 widget 为自绘不透明
+- **rk3568/autostart/S95tof_spi_receiver**：`usb_adapter_reset()` 头部加 `rmmod cdc_acm 2>/dev/null || true`，防止内核 cdc_acm 驱动抢占 USB adapter（0483:5740）导致 libusb OpenUsb=-1
+- 确认 weston.ini `transform=rotate-90` 可能需改 `rotate-270` 解决颠倒（待交叉编译部署后板上验证）
+- 新增 `docs/cross_compile_qt_display.md`：SDK 机交叉编译 + 串口部署 + weston.ini transform 调试完整步骤
+
+**状态：** 源码修改已入库，**尚未交叉编译部署**。需在有 aarch64 SDK 的 Linux 机器 `git pull` + `qmake` + `make` + 串口传板。
+
+**验证方式：** 见 `docs/cross_compile_qt_display.md`
+
+**遗留：**
+1. 交叉编译并部署新 qt_display binary 到 RK3568 `/myApp/tof3/qt_display/qt_display`
+2. 验证 fullscreen configure（串口看 weston 日志不再出现 WindowNoState）
+3. 验证蓝底绿块 fallback 上屏（无帧时应可见）
+4. 测试 weston.ini transform `rotate-270` 是否修正颠倒
+5. 哪吒 spidev1.0 仍待诊断（SSH 超时）
+
+### 2026-05-20 - spidev 诊断、RK3568 黑屏日志增强、SPI e2e 脚本
+
+- 新增 `deploy/setup_spidev.sh`：哪吒本机执行，诊断 ACPI/LPSS/SPI 控制器，尝试 `modprobe spidev`，枚举 `/dev/spidev*`，缺节点时通过 sysfs 创建/绑定。
+- 修改 `rk3568/qt_display/main.cpp`：启动时打印 frame path、QPA platform、screen geometry，并改为 `showFullScreen()`。
+- 修改 `rk3568/qt_display/mainwindow.cpp`：轮询 `received.dat` 时打印读失败、重复 seq、新帧 seq/valid 日志。
+- 修改 `rk3568/qt_display/depthWidget.cpp`：`paintEvent` 周期性打印日志；未收到深度帧前绘制蓝底绿块 fallback，用于确认窗口实际上屏。
+- 新增 `deploy/spi_e2e_test.py`：SSH 哪吒启动 `sim_pf32` 和 `spi_syncer`；串口 RK3568 做 USB-SPI reset、启动 `spi_receiver`，可选启动 `qt_display`，轮询 `/tmp/received.dat` 并校验 magic/version/尺寸/validCount/depth range/CRC16。
+- 本地验证：`python -m py_compile deploy/spi_e2e_test.py` 通过。当前 sandbox 无 `qmake`/`bash`，Qt 交叉构建、shell `bash -n`、真实硬件链路未在本机执行。
+
+### 2026-05-20 - RK3568 现网联调结果
+
+- 哪吒侧：`192.168.31.127` 可 ping，但 `22/24/2222/2200/8022` 都不通，当前这台开发机无法直接 SSH 上去执行 `spidev` / `spi_syncer`。
+- RK3568 侧：`COM7 @ 1500000 8N1` 可连通，板上返回 `Linux ATK-DLRK3568 4.19.232 aarch64`，串口链路正常。
+- USB-SPI 适配器：板上可见 `0483:5740`，执行 USB unbind/bind 后枚举出 `2-1`，`spi_receiver` 进程可启动。
+- 显示进程：`qt_display` 已启动，先后尝试 `wayland` 和 `linuxfb`，`wayland` 因 `wl_display` 不存在失败，`linuxfb` 可以起来。
+- 当前屏幕表现：用户现场看到的是“闪烁黑屏 + 没有数据的窗口”；从日志侧看，`qt_display` 进程在跑，但还没有确认到有效深度帧刷新到屏幕上。
+- 当前文件状态：`/tmp/received.dat` 目前未由哪吒端持续刷新，`spi_receiver` 只看到 `nohup: ignoring input`，说明接收端进程在但上游数据链路还没打通。

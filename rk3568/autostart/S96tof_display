@@ -18,6 +18,13 @@ LOG_FILE="/var/log/tof_display.log"
 
 . /etc/profile
 
+wait_for_weston() {
+    local i=0
+    while [ ! -S "${XDG_RUNTIME_DIR:-/var/run}/wayland-0" ] && [ $i -lt 20 ]; do
+        sleep 0.5; i=$((i+1))
+    done
+}
+
 case "$1" in
     start)
         echo -n "Starting tof_display: "
@@ -25,6 +32,7 @@ case "$1" in
             echo "already running (PID $(cat $PID_FILE))"
             exit 0
         fi
+        wait_for_weston
         "$APP" "$FRAME" >> "$LOG_FILE" 2>&1 &
         echo $! > "$PID_FILE"
         echo "done."

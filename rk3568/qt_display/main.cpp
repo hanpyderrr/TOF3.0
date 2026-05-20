@@ -6,6 +6,10 @@
  */
 #include "mainwindow.h"
 #include <QApplication>
+#include <QDebug>
+#include <QGuiApplication>
+#include <QScreen>
+#include <QTimer>
 #include <csignal>
 
 int main(int argc, char *argv[])
@@ -15,7 +19,21 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
     const QString path = (argc > 1) ? QString::fromLocal8Bit(argv[1])
                                      : QStringLiteral("/tmp/received.dat");
+    qInfo() << "qt_display: starting";
+    qInfo() << "qt_display: frame path =" << path;
+    qInfo() << "qt_display: platform =" << QGuiApplication::platformName();
+    const QList<QScreen *> screens = QGuiApplication::screens();
+    for (int i = 0; i < screens.size(); ++i)
+        qInfo() << "qt_display: screen" << i << screens.at(i)->geometry();
+
     MainWindow w(path);
+    w.setWindowFlags(w.windowFlags() | Qt::FramelessWindowHint);
+    w.setWindowState(w.windowState() | Qt::WindowFullScreen);
     w.show();
+    QTimer::singleShot(0, &w, [&w]() {
+        w.setWindowState(w.windowState() | Qt::WindowFullScreen);
+        w.showFullScreen();
+        qInfo() << "qt_display: fullscreen requested after show, window geometry =" << w.geometry();
+    });
     return app.exec();
 }
