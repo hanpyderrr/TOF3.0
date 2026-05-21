@@ -1,6 +1,6 @@
 # 工作进度
 
-> 最后更新：2026-05-19
+> 最后更新：2026-05-21
 > 主控：Claude Opus 4.7
 
 ---
@@ -26,7 +26,9 @@
 | RK3568 自启脚本 | ✅ `rk3568/autostart/S95tof_spi_receiver`+`S96tof_display`（文件桥 /tmp/received.dat）|
 | 板上联调（数据链路） | ✅ **端到端实测通过**：哪吒 sim→spi_syncer→SPI→适配器→spi_receiver→received.dat(2070B,seq 递增 ~2fps,crc 全过) |
 | 板上联调（数据链路·二轮） | ✅ **USB reset 后再次端到端实测通过**：seq 实时持续递增（564→590→830） |
-| 板上联调（屏显/稳定性） | ⚠️ Qt 源码已修复（fullscreen+渲染），**尚未交叉编译部署**；weston.ini transform 待验证 |
+| 板上联调（屏显/稳定性） | ✅ **已交叉编译部署，屏显实时深度图正常**；旧 v1.0 自启已禁用（开机三阶段消除）|
+| 哪吒开机自启（systemd） | ✅ `nezha/autostart/` tof-acquisition + tof-spi-syncer，重启验证；旧 v1.0 crontab 已禁 |
+| RK3568 开机自启 | ✅ S95/S96 已装并验证；旧 `S51mydisplay`/`S99myspireceive` 改名 `DISABLED.*` 真正禁用 |
 
 ---
 
@@ -80,6 +82,24 @@
 ---
 
 ## 已完成工作记录
+
+### 2026-05-21 — 屏显部署修复 + 双机开机自启 + 开发环境文档
+
+**用户要求：** 用 `~/rk3568_linux_sdk` 交叉编译修 Qt 屏显并部署 → 思考下一步 → 哪吒生产无网，配开机自启 → 排查重启后屏显异常 → 整理文件上传 GitHub
+
+**做了：**
+- **qt_display 交叉编译 + 部署**：用 `~/rk3568_linux_sdk/.../host/bin/qmake`（GCC 10.3.0 + Qt5.15.2）编译 aarch64 binary，paramiko SFTP/串口部署到 `/myApp/tof3/qt_display/`。屏显修复确认：**先蓝底绿块 fallback → 切真实深度图**（jet 热图实时刷新），I2 屏显问题闭环
+- **哪吒 systemd 自启**（`nezha/autostart/`）：`tof-acquisition.service`（sim_pf32→/tmp/depth.dat）+ `tof-spi-syncer.service`（spi_syncer→/dev/spidev1.0，root，ExecStartPre 等 spidev/depth.dat 就绪）。修 ordering cycle（`After=multi-user.target`→`basic.target`）；禁旧 v1.0 crontab（`PF32dataAcquisitionAndSPIsend`）；**重启验证两服务 active、depth.dat seq 递增**
+- **RK3568 禁用旧 v1.0 自启**（关键踩坑）：旧 `S51mydisplay`/`S99myspireceive` 之前改成 `.old` 后缀**并未禁用**——Buildroot `rcS` 用 `for i in /etc/init.d/S??*`，`.old` 仍以 S 开头仍匹配，照样 `$i start`，导致开机**三阶段闪屏**（旧 SinglePhoton 界面→qt 兜底→真实图）。改名为 `DISABLED.mydisplay`/`DISABLED.myspireceive`（去掉 S 前缀）才真正禁用，并 kill 残留旧 SinglePhoton207 进程
+- **重启后"上白下黑"排查**：实测为哪吒重启后 spi_syncer 尚未推上首帧的暂态（weston/spi_receiver/qt_display 进程均正常，received.dat magic TOFP 正确），数据上来即自愈
+- **文档**：新增 `docs/开发环境.md`（两机地址/SDK/快速连接/链路启动序/踩坑）；更新 `docs/登录方式.md`（哪吒 IP 192.168.31.127→**192.168.31.79**，DHCP/MAC 标注）
+
+**验证：** 屏显＝用户目视真实深度图实时刷新 ✅；哪吒自启＝重启后两 service active + depth.dat seq 递增 ✅；RK 自启＝重启后仅 weston+spi_receiver+qt_display，旧 SinglePhoton 消失，开机不再出旧界面 ✅
+
+**遗留：**
+1. qt_display 启动瞬间仍会闪一下蓝底绿块兜底（首帧未到）；如需消除可改为收到首帧再 `showFullScreen`
+2. acquisition 当前跑 sim_pf32 模拟器；接真实 PF32 后改 `tof-acquisition.service` 的 ExecStart
+3. `deploy/` 下一次性诊断脚本（check_*/diag_*/step[1-4]_* 等）可清理，待定
 
 ### 2026-05-19 — P-RT 二轮联调（清现场 + USB reset + QPA 定位 + 仓库整理）
 

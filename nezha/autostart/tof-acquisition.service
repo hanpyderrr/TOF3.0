@@ -1,0 +1,16 @@
+[Unit]
+Description=TOF3.0 acquisition (sim_pf32 -> /tmp/depth.dat)
+Documentation=https://github.com/hanpyderrr/TOF3.0
+After=basic.target
+
+[Service]
+Type=simple
+User=ding
+WorkingDirectory=/home/ding/tof3-rt/acquisition
+# 当前阶段用 sim_pf32 模拟器；接真实 PF32 后改为真实采集程序(ExampleTOF)的绝对路径
+ExecStart=/home/ding/tof3-rt/acquisition/sim_pf32
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

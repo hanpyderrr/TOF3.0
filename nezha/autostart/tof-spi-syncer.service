@@ -1,0 +1,19 @@
+[Unit]
+Description=TOF3.0 SPI syncer (/tmp/depth.dat -> /dev/spidev1.0)
+Documentation=https://github.com/hanpyderrr/TOF3.0
+After=tof-acquisition.service
+Wants=tof-acquisition.service
+
+[Service]
+Type=simple
+# 需 root 访问 /dev/spidev1.0
+User=root
+# 等 spidev1.0(开机~2.5s 由 ACPI 自动出现) 与 depth.dat(采集产出) 就绪，最多 60s；
+# 超时也继续(Restart=always 兜底)，避免卡死。
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 60); do [ -e /dev/spidev1.0 ] && [ -e /tmp/depth.dat ] && exit 0; sleep 1; done; exit 0'
+ExecStart=/home/ding/tof3-rt/spi_syncer/spi_syncer
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
