@@ -62,3 +62,6 @@ task_plan.md
 rk3568_spi_legacy_interface_summary.md
 tmp_rk_spi_notes.docx
 rk3568/qt_display/black_screen_analysis.md
+
+# 算法原型生成图（产物，不入库；源码/README 保留）
+nezha/algorithm/out/
