@@ -29,9 +29,10 @@
 ## 二、硬件拓扑
 
 ```
-PF32 探测器（32×32 SPAD，TCSPC）
-    │ USB（Opal Kelly FPGA）
-激光驱动器（YSC-SO-M04-4，Modbus RTU）
+PF32 探测器（32×32 SPAD，TCSPC，sys_master）
+    │ USB（Opal Kelly FPGA）→ 哪吒
+    │ TRIG 输出（TTL）→ 激光器外触发；PF32 内部 EXTSTOP 做 stop（反向 start-stop）
+激光驱动器（YSC-SO-M04-4，Modbus RTU；PF32 外触发，频率随 PF32 TRIG）
     │ USB-UART → 哪吒 /dev/ttyUSB0
     │
 哪吒 NUC（Intel N97，x86_64，Ubuntu；生产环境无网络）
@@ -185,6 +186,8 @@ payload      uint16[32×32×1024]
 ---
 
 ## 七、实时反馈控制
+
+> **同步前提**：激光工作在 PF32 外触发模式（PF32 sys_master 出 TRIG → 激光 P3）。重复频率由 PF32 TRIG 决定，闭环**只调电平/功率，不调频率**（laser `setFreqHz` 在外触发下被驱动拒绝）。
 
 FeedbackController 每 10 帧评估（哪吒主线程，本地闭环，不过 SPI）：
 

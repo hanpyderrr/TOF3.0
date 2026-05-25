@@ -24,8 +24,8 @@ TOF 单光子 3.0：双机协作架构。
 |------|------|------|
 | 哪吒 NUC | Intel N97，x86_64，Ubuntu，**生产无网络** | SSH: ding/1234（调试期） |
 | RK3568 | ATK-DLRK3568，aarch64，Buildroot，内核 4.19，**有 5G** | 串口 /dev/ttyUSB0@1500000；USB 接 SPI 适配器 |
-| PF32 探测器 | 32×32 SPAD，TCSPC，55ps/bin | USB（Opal Kelly）→ 哪吒 |
-| 激光驱动器 | YSC-SO-M04-4，Modbus RTU 9600 8N1 | USB-UART → 哪吒 /dev/ttyUSB0 |
+| PF32 探测器 | 32×32 SPAD，TCSPC，55ps/bin，TCSPC **sys_master**（出 TRIG） | USB（Opal Kelly）→ 哪吒 |
+| 激光驱动器 | YSC-SO-M04-4，Modbus RTU 9600 8N1，**PF32 TRIG 外触发** | USB-UART → 哪吒 /dev/ttyUSB0；TTL 外触发 ← PF32 TRIG |
 | STM32F103 | 调焦电机控制，TMC2209 | → RK3568 串口（19200 8N1，节点待定） |
 | USB转SPI 适配器 | STM32 方案，USB ID 0483:5740 | 哪吒 SPI 引脚 ↔ 适配器，适配器 USB ↔ RK3568 |
 
@@ -116,11 +116,11 @@ TOF3.0/
 ## 关键设计约定
 
 - `depth_proto.h`：TofFrame (2070B)，与 TOF 1.0 协议兼容
-- PF32 **反向 start-stop**：`distance = (1023 - bin) × 55ps × c/2`
+- PF32 **反向 start-stop**：`distance = (1023 - bin) × 55ps × c/2`（PF32 跑 **TCSPC sys_master**，由其 TRIG 触发激光，stop 来自 PF32 内部 EXTSTOP）
 - 哪吒**生产无网络**；深度图实时显示在 **RK3568 MIPI 屏**（哪吒 HDMI 仅开发可选）
 - 深度帧走 **SPI 实时流**；原始 TCSPC 只哪吒本地存档；**5G 上云暂缓**
 - SPI 传输失败不阻塞采集，数据继续本地积累
-- 激光控制 **留在哪吒**（FeedbackController 实时闭环，不过 SPI）
+- 激光控制 **留在哪吒**（FeedbackController 实时闭环，不过 SPI）。激光工作在 **PF32 外触发模式**（PF32 sys_master 出 TRIG → 激光 P3）：重复频率由 PF32 TRIG 决定，激光 `setFreqHz` 在外触发下无效，闭环只调电平/功率；`refs/pf32/docs/SyncInput_3300mV.pdf`（laser_master 反向接法）**不适用本项目**
 - 电机控制 **在 RK3568，直连 STM32 串口**（哪吒 `motoruart` 为过渡实现，最终迁出）
 - SPI 接收走 **USB转SPI 适配器**（非 RK3568 原生 SPI）
 

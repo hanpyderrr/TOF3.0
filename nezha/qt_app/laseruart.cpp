@@ -52,12 +52,16 @@ bool LaserUart::isOpen() const
 
 bool LaserUart::setExternalTrigger()
 {
-    return sendFrame(buildFrame(FUNC_TRIGGER, DATA_TRIGGER_EXT));
+    bool ok = sendFrame(buildFrame(FUNC_TRIGGER, DATA_TRIGGER_EXT));
+    if (ok) m_extTrigger = true;
+    return ok;
 }
 
 bool LaserUart::setInternalTrigger()
 {
-    return sendFrame(buildFrame(FUNC_TRIGGER, DATA_TRIGGER_INT));
+    bool ok = sendFrame(buildFrame(FUNC_TRIGGER, DATA_TRIGGER_INT));
+    if (ok) m_extTrigger = false;
+    return ok;
 }
 
 bool LaserUart::laserOff()
@@ -75,6 +79,13 @@ bool LaserUart::setLevel(uint8_t level)
 
 bool LaserUart::setFreqHz(uint32_t hz)
 {
+    // In external-trigger mode (PF32 sys_master) the repetition rate is set by
+    // the PF32 TRIG output; the laser's internal frequency is ignored. Reject
+    // the call so callers don't get a false sense of having changed the rate.
+    if (m_extTrigger) {
+        emit errorOccurred("setFreqHz ignored: external-trigger mode, rate follows PF32 TRIG");
+        return false;
+    }
     return sendFrame(buildFrame(FUNC_FREQ, hz));
 }
 
@@ -85,7 +96,14 @@ bool LaserUart::setPulseWidth(uint8_t nsDiv5)
 
 bool LaserUart::readParams(LaserParams &out)
 {
-    // Send read command: 06 00 00 00 00 AC 00
+    // Send read command: 06 00 00 00 00 AC 00  (matches the manual's example).
+    //
+    // WARNING: the response parsing below does NOT match the manual's worked
+    // example reply `06 06 15 00 00 13 88 00 06 00 00 00 E5 41` (14 bytes,
+    // voltage level 21 / 5kHz / 30ns) — there byte[1]=0x06 is not the level.
+    // The manual's own table (13 bytes) and example (14 bytes) are themselves
+    // inconsistent. Do NOT trust this field mapping until verified against a
+    // real-device capture (e.g. sscom). See docs/agent-work/progress.md.
     QByteArray frame;
     frame.append('\x06');
     frame.append('\x00');

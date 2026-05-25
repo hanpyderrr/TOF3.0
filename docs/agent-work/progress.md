@@ -1,6 +1,6 @@
 # 工作进度
 
-> 最后更新：2026-05-22
+> 最后更新：2026-05-25
 > 主控：Claude Opus 4.7
 
 ---
@@ -83,6 +83,34 @@
 ---
 
 ## 已完成工作记录
+
+### 2026-05-25 — 激光 PF32 同步机制确认 + 激光驱动外触发完善
+
+**背景：** 准备完善激光驱动（PF32 未到，代码先行）。核心问题：激光怎么与 PF32 TTL 同步。
+
+**查证结论（手册 + 旧采集代码，权威）：**
+- PF32 两种 TCSPC 模式（`refs/pf32/.../PF_API.py:32-33`）：`LASER_MASTER`(1) 收激光 SYNC 做 TDC stop；`SYS_MASTER`(2) PF32 出 TRIG + 内部 EXTSTOP 做 stop。
+- **实际采集代码 `单光子项目/TOF/哪吒端/ExampleTOF.cpp`、`C++/FW_Histogramming.cpp` 全部用 `TCSPC_sys_master`** → 确定 **PF32 做主、PF32 TRIG 输出触发激光**，激光必须工作在外触发模式。与反向 start-stop 公式 `(1023-bin)×55ps×c/2` 自洽。
+- ⚠️ `refs/pf32/docs/SyncInput_3300mV.pdf`（3.3V SYNC 输入上限）讲的是**反向接法**（激光 SYNC→PF32 SYNC 输入，即 laser_master），**不适用本项目**，勿据此去接 PF32 SYNC 口。
+- 激光器 YSC-SO-M04-4（手册）：Modbus RTU 9600 8N1；P3=TTL（外触发输入 / 同步输出 二选一）；重复频率 1Hz–1MHz（默认5k）、脉宽 5–200ns（默认10）、电压 1–200级（默认50）。
+- **关键：外触发模式下激光重复频率由 PF32 TRIG 决定，激光自身 `setFreqHz` 无意义。**
+- 待实物确认：**PF32 TRIG 输出电平 vs 激光 TTL 输入门限**（手册只写"TTL"未给门限，可能需电平转换；风险方向是"驱不动"，非"烧设备"）。
+
+**代码核对（`nezha/qt_app/laseruart.cpp`）：**
+- Modbus 帧格式 / 功能码（01电压 02频率 03脉宽 04脉冲模式 06读取）/ 4B 大端数据 / CRC16 与手册逐条一致 ✓
+- `readParams` 解析与手册返回实例 `06 06 15 00 00 13 88 00 06 00 00 00 E5 41`（14B）对不上，且手册表格(13B)与实例(14B)自相矛盾 → 标注存疑，待实物 sscom 抓包再修正。
+
+**改动：**
+- `laseruart.h`：加同步架构文件头注释；新增 `m_extTrigger` 状态；修正 `LaserParams.mode` 注释（0=off / 1=internal / 2=external）。
+- `laseruart.cpp`：`setExternalTrigger/setInternalTrigger` 维护 `m_extTrigger`；`setFreqHz` 在外触发模式下拒绝并 `emit errorOccurred`；`readParams` 加存疑警告注释。
+- 调用方 `mainwindow.cpp:32` 仅用 `setExternalTrigger`，未受影响。
+
+**验证：** 开发机无 Qt5，未本地编译；改动为状态逻辑 + 注释，无 API/头文件变化，风险低，需哪吒 `qmake && make` 验证。
+
+**遗留：**
+1. PF32 TRIG 输出电平 vs 激光 TTL 输入门限——实物示波器确认，定是否加电平转换。
+2. `readParams` 字段映射待实物回环验证后修正。
+3. 激光仍未接入生产自启链路（`tof_viewer` 不在哪吒 systemd 自启中）——独立架构问题，另议。
 
 ### 2026-05-22 — 闭环开发方向确定 + ToF 雾分离算法原型（仿真验证）
 
