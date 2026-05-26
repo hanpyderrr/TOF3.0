@@ -84,6 +84,41 @@
 
 ## 已完成工作记录
 
+### 2026-05-26 (深夜) — 架构 Q1–Q5 确认 + 阶段 1 计划定稿
+
+**背景：** 本次会话确认了 `docs/algorithm_code_architecture.md` 中五个设计待确认项，并调整了算法研究的起点。
+
+**Q1–Q5 确认结果：**
+- Q1 接口形态：传统算法用**函数式** `estimate(sample, cfg) → DepthEstimate`；ML 用**类式** `Estimator` ABC
+- Q2 `tof_process.py` v1：阶段 1 留原地不动；阶段 2 加 adapter 包一层，v1 本身不改
+- Q3 ML 路线：算法研究态 PyTorch 放 `nezha/algorithm/algorithms/ml/`；收敛后搬 `ml_offline/` 做工程化降级
+- Q4 `runs/` 目录：全 `.gitignore`（复现靠重跑）
+- Q5 配置形态：阶段 1 用 per-algo dataclass；阶段 2 批量实验时再引入 YAML
+
+**方向调整：**
+- 用户决定**先不做雾，先做峰值检测到目标作为第一步**
+- 理由：峰值检测失败说明 loader/bin 方向/深度换算有 bug，不是算法问题；打通后加雾才有对比基准
+- 起点改为在 `tof_sim.py`（已有合成数据生成器）上跑通管道，不需要先下载 6.1G Gutierrez 数据
+
+**阶段 1a 计划（下次开始实施）：**
+```
+nezha/algorithm/
+├── contracts.py              新建：DepthEstimate / AlgoConfig dataclass
+├── algorithms/
+│   ├── __init__.py           新建（空）
+│   └── argmax.py             新建：包 tof_process.depth_argmax，输出 DepthEstimate
+└── eval/
+    ├── __init__.py           新建（空）
+    ├── metrics.py            新建：RMSE / hit_rate 计算
+    └── sanity.py             新建：入口脚本，用 tof_sim 生成合成数据跑 argmax
+```
+通过条件：RMSE < 10mm，hit_rate > 99%（合成数据无噪声/无雾，标准严）
+
+**未做（等下次）：**
+- 上述 4 个文件的实际编写
+
+---
+
 ### 2026-05-26 (晚) — 算法研究态启动:Gutierrez 数据拉取 + loader/inject_fog + 代码架构规划
 
 **背景:** 用户调整方向——**先研究算法,再考虑 PF32 工程化对接**。不为 32×32/反向 start-stop/INT8 等工程约束让步,在公开数据上把"目标—雾分离"研究到收敛,再降级到 PF32。`ml_offline/` 那套工程化文档/policy 推迟到算法收敛后。
