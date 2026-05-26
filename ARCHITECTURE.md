@@ -79,9 +79,14 @@ rk3568/（RK3568 — 实时显示 + 电机 +（日后）5G 网关）
 ├── cloud_syncer/        5G 上传（已实现+e2e 过）——【归暂缓阶段，保留不动】
 └── autostart/           BusyBox init.d 自启动（待实现）
 
-cloud/（云端 —— 本阶段暂缓接入）
-├── server/（FastAPI + SQLite）当前跑哪吒 localhost:8765；生产需迁公网
-└── ml/（ML 脚手架，云端 GPU 训练，P10+）
+cloud/（本地开发用 FastAPI；本阶段不上云）
+└── server/（FastAPI + SQLite）跑哪吒 localhost:8765；仅本地开发
+
+ml_offline/（离线训练 + ONNX 导出；原 cloud/ml，边缘推理路线）
+├── schema/         session/frame 元数据 JSON Schema
+├── data/           raw_dump / meta / labels（本地不入仓）
+├── train/ export/ infer/ eval/ tests/
+└── models/         Hist3DNet / DepthUNet
 ```
 
 ---

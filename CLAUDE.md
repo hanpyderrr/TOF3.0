@@ -105,9 +105,9 @@ TOF3.0/
 │   ├── cloud_syncer/ 5G 上传（已实现+e2e；归暂缓阶段，保留不动）
 │   ├── motor_controller/ 串口→STM32 电机（待实现）
 │   └── autostart/    BusyBox init.d（待实现）
-├── cloud/            云端代码（本阶段暂缓接入）
-│   ├── server/       FastAPI 服务（main.py, models.py）
-│   └── ml/           ML 脚手架（云端 GPU 训练）
+├── cloud/            本地开发用 FastAPI（server/；5G 上云暂缓）
+│   └── server/       FastAPI 服务（main.py, models.py）
+├── ml_offline/       离线训练 + ONNX 导出（原 cloud/ml；边缘推理路线，不上云）
 ├── deploy/           部署脚本（paramiko SFTP）
 ├── refs/             参考文档（PF32 手册、RK3568 文档、USB转SPI 资料）
 └── docs/             设计文档、算法、连接/SPI 硬件说明

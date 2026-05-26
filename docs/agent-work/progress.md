@@ -1,6 +1,6 @@
 # 工作进度
 
-> 最后更新：2026-05-25
+> 最后更新：2026-05-26
 > 主控：Claude Opus 4.7
 
 ---
@@ -83,6 +83,42 @@
 ---
 
 ## 已完成工作记录
+
+### 2026-05-26 — 离线训练 + 边缘推理架构落地:ml_offline/ 骨架 + schema + policy
+
+**背景:** 用户调整 ML 方向——**不上云**,改为"本地实时显示 + 离线下载哪吒数据训练 + ONNX 边缘部署(默认哪吒 N97,3568 NPU 备用)"。原 `cloud/ml/` 命名误导,需要重命名 + 扩展结构。
+
+**已确认决策(2026-05-26):**
+1. **训练机器**:TBD(用户另找,候选:自建 GPU 工作站 / 临时租云 / 本机 CPU 退化)
+2. **场景元数据**:**自动推断为主**——manifest/frame_record 字段大部分由进程读硬件/系统填,操作员只在会话启动时给 4 个 CLI 参数(`--location --scene --fog --pair-with`)
+3. **新模型上线**:**影子模式**——v_next 与 v_current 并行跑 N 天对比指标,通过才切主路,异常自动回滚
+4. **raw 保留触发阈值**:**起步值,后期标定**——落进 `policy/event_trigger.yaml`(Q ±3σ over 100-frame rolling + 每 600 帧定时采样)
+
+**做了(纯文档/骨架,零代码风险):**
+- `git mv cloud/ml ml_offline`(14 文件,保留历史)
+- 新增 `ml_offline/schema/`:`session_manifest.schema.json` + `frame_record.schema.json` + README
+  - `additionalProperties: false` 防止字段拼写错混进数据
+  - 通过 JSON Schema Draft 2020-12 meta-schema 校验,样例 manifest+frame 实例验证通过
+- 新增 `ml_offline/data/{raw_dump,meta,labels}/`:子目录骨架 + README,数据驱动布局
+  - `data/meta/<session_id>/` 放轻量元数据(MB 级,全量 rsync)
+  - `data/raw_dump/<session_id>/` 放 raw .tch + depth .tofrec(GB 级,选择性 rsync)
+  - `data/labels/` 自动生成的弱监督标签(long_exposure_64x / level0_physical / clear_pair / calib_target)
+- 新增 `ml_offline/eval/README.md`:A/B + 影子模式 + 模型语义版本号约定
+- 新增 `ml_offline/policy/`:`event_trigger.yaml` + `shadow_mode.yaml` + README
+  - 起步值标注 `# starter, tune after ...`,改动留旧值在注释里
+- 重写 `ml_offline/README.md`:含数据/模型生命周期图 + 标签策略 + 字段填充方式
+- 同步 `CLAUDE.md`/`ARCHITECTURE.md` 目录结构(cloud/ml → ml_offline)
+- `.gitignore` 排除 `*.tch`/`*.tofrec`/`ml_offline/data/*/` 子目录
+
+**验证:** schema 用 `jsonschema` 库做了 meta-schema 校验 + 样例实例验证,均通过。其他都是文档/目录骨架,无代码风险。
+
+**遗留(Phase A 末尾再做,本次范围外):**
+1. `nezha/acquisition/start_session.sh` — 会话启动脚本(组装 manifest + 启 acquisition)
+2. `ml_offline/tools/validate_session.py` — 离线验证 session 目录合规
+3. `ml_offline/data/tof_dataset.py` 增强以按 manifest 索引数据集
+4. `tof_sim.py` 升级(pile-up / Gamma / Skewed peak / Middlebury loader)
+5. `nezha/ml_runtime/` ONNX Runtime 推理封装(线上推理路径)
+6. `deploy/sync_raw.py` 哪吒→开发机 rsync 同步脚本
 
 ### 2026-05-25 — 激光 PF32 同步机制确认 + 激光驱动外触发完善
 
