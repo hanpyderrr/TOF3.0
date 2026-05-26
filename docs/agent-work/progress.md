@@ -84,6 +84,50 @@
 
 ## 已完成工作记录
 
+### 2026-05-26 (晚) — 算法研究态启动:Gutierrez 数据拉取 + loader/inject_fog + 代码架构规划
+
+**背景:** 用户调整方向——**先研究算法,再考虑 PF32 工程化对接**。不为 32×32/反向 start-stop/INT8 等工程约束让步,在公开数据上把"目标—雾分离"研究到收敛,再降级到 PF32。`ml_offline/` 那套工程化文档/policy 推迟到算法收敛后。
+
+**做了:**
+
+- 新增 `docs/algorithm_test_plan.md` — 四阶段路径(基线管道→雾注入对比→跨数据集泛化→真雾 hold-out),数据源/雾模型/算法版本/通过条件全表
+- 新增 `docs/algorithm_code_architecture.md` — `nezha/algorithm/` 分层(契约/数据/预处理/算法/评估/入口)、文件清单分阶段、5 个待确认设计问题
+- 拉取 Gutierrez-Barragan ICCV 2023 SimSPADDataset_min 到 `nezha/algorithm/datasets/`(`.gitignore`,~6.1G):
+  - `Copy of PSF_used_for_simulation_nr-64_nc-64.mat`(47K)
+  - `Copy of scene_group0.zip`(6.1G,未解压)
+  - 走 Clash 7890 + gdown,实际耗时 11 分钟(早期 700KB/s 节流,后期飙到 14MB/s)
+- 写 `nezha/algorithm/sim_spad_loader.py`(算法研究态契约):
+  - 输出 `SpadSample` dataclass(hist + depth_mm + start_stop)
+  - **维持 Gutierrez 原始 64×64**(不为 PF32 32×32 让步)
+  - `start_stop='forward'` **默认**(bin 越大越远,与 Gutierrez/Lindell 同向);`reverse` 留给工程化降级
+  - 提供 `bin_to_mm()` / `iter_dataset()` / `sanity_check()`
+- 写 `nezha/algorithm/inject_fog.py`(plan §2.1 雾注入):
+  - **Gamma 模型**实现(`β · r^(k-1) · exp(-α·r)`,文献 10 火箭军);lognormal/exponential/mie_lite 接口预留
+  - 三档 `light` / `medium` / `dense`,对应 Koschmieder 能见度 5m / 3m / 1m(α=7.8e-4 / 1.3e-3 / 3.9e-3 /mm)
+  - Poisson 采样可关闭,fog_meta dict 记录所有参数(alpha/beta/k/peak_bin/total_fog_photons)
+  - **smoke test 通过**:假数据 1000 信号光子注雾后 hist 总和符合 (信号 + β_rel × 信号) 期望,peak_bin 随雾浓度前移符合物理
+- `.gitignore` 加 `nezha/algorithm/datasets/` + `*.mat`(公开数据集本地缓存,不入库)
+
+**未做(等用户确认架构 Q1-Q5 再落):**
+
+1. `contracts.py`(`DepthEstimate` / `AlgoConfig` 公共契约)
+2. `algorithms/argmax.py`(v0 baseline 新接口)
+3. `eval/{metrics, sanity}.py`(无雾 sanity 入口)
+4. 解压 scene_group0.zip + 跑真实 Gutierrez sample 的 sanity_check(数据已在本地,等架构定型一起跑)
+
+**验证:**
+
+- `inject_fog.py` smoke test 通过(假数据 forward 方向,Gamma 三档数值/peak_bin 物理合理)
+- `sim_spad_loader.py` 语法通过(被 inject_fog import 时执行,无 import 错)
+- **无雾真实数据 sanity 尚未跑**(等架构 Q1-Q5 + zip 解压)
+
+**待用户确认(阻塞落代码):** 见 `docs/algorithm_code_architecture.md §5`
+- Q1 算法接口函数 vs 类
+- Q2 现有 `tof_process.py` v1 处理方式(留 / 改 / 包 adapter)
+- Q3 ML 路线进 `nezha/algorithm/algorithms/ml/` 还是 `ml_offline/`
+- Q4 `runs/` 目录是否全 .gitignore
+- Q5 配置形态(per-algo dataclass vs YAML)
+
 ### 2026-05-26 — 离线训练 + 边缘推理架构落地:ml_offline/ 骨架 + schema + policy
 
 **背景:** 用户调整 ML 方向——**不上云**,改为"本地实时显示 + 离线下载哪吒数据训练 + ONNX 边缘部署(默认哪吒 N97,3568 NPU 备用)"。原 `cloud/ml/` 命名误导,需要重命名 + 扩展结构。

@@ -75,3 +75,7 @@ ml_offline/runs/
 ml_offline/data/raw_dump/*/
 ml_offline/data/meta/*/
 ml_offline/data/labels/*/
+
+# 算法研究本地数据缓存（公开数据集,不入库;loader/算法代码保留）
+nezha/algorithm/datasets/
+*.mat
