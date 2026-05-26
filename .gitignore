@@ -79,3 +79,6 @@ ml_offline/data/labels/*/
 # 算法研究本地数据缓存（公开数据集,不入库;loader/算法代码保留）
 nezha/algorithm/datasets/
 *.mat
+
+# 学位论文（含超大 docx/pptx，不入库；PDF 论文正常入库）
+refs/literature/thesis/
