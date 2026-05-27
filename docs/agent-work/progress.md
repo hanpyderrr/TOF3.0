@@ -570,3 +570,19 @@ chmod +x binary_file
 - 显示进程：`qt_display` 已启动，先后尝试 `wayland` 和 `linuxfb`，`wayland` 因 `wl_display` 不存在失败，`linuxfb` 可以起来。
 - 当前屏幕表现：用户现场看到的是“闪烁黑屏 + 没有数据的窗口”；从日志侧看，`qt_display` 进程在跑，但还没有确认到有效深度帧刷新到屏幕上。
 - 当前文件状态：`/tmp/received.dat` 目前未由哪吒端持续刷新，`spi_receiver` 只看到 `nohup: ignoring input`，说明接收端进程在但上游数据链路还没打通。
+### 2026-05-27 - Phase A Algorithm Research Pipeline
+
+Delegated Codex worker task completed in `nezha/algorithm/`:
+- Fixed `sim_spad_loader.py` for sparse `spad` matrices, raw `bin` GT, per-sample `bin_size_ps`, intensity, and dataset-provided estimate fields.
+- Added shared contracts, argmax baseline, metrics, sanity visualization, and `run_sanity.py` entrypoint.
+- Added local algorithm `.gitignore` for `out/`, `datasets/`, and `runs/`.
+- Added regression tests in `nezha/algorithm/tests/test_phase_a.py`.
+
+Verification:
+- `python -m unittest tests.test_phase_a` passed.
+- `python run_sanity.py datasets\scene_group0\dining_room_0022\spad_0011_p1.mat --save` generated `out\spad_0011_p1_sanity.png`.
+- Acceptance command was also run with `MPLBACKEND=Agg`; it printed RMSE/hit_rate without crashing. Agg backend warned that `plt.show()` is non-interactive.
+- `py_compile` could not write `__pycache__` due Windows sandbox permission; import verification with `python -B` passed.
+
+Note:
+- On sample `spad_0011_p1`, pure argmax prints RMSE about 2869.5 mm and hit_rate about 8.6%; dataset-provided argmax/LMF/ZNCC are also weak on this low-SBR sample, so this is a baseline limitation rather than a runtime failure.

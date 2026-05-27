@@ -98,16 +98,25 @@ RK3568 (rk3568/spi_receiver + 新 Qt 显示程序)
 TOF3.0/
 ├── nezha/            哪吒 NUC 侧代码
 │   ├── acquisition/  C++ 采集（sim_pf32, ExampleTOF, depth_proto.h）
-│   └── qt_app/       Qt 主程序（tof_viewer，含待写 SpiSyncer）
+│   ├── qt_app/       Qt 主程序（tof_viewer，含待写 SpiSyncer）
+│   ├── spi_syncer/   实时深度帧推送 /dev/spidev1.0
+│   └── autostart/    systemd 服务（tof-acquisition, tof-spi-syncer）
 ├── rk3568/           RK3568 侧工程
 │   ├── legacy/       v1.0 遗留代码（电机、SPI slave、Qt 显示参考）
-│   ├── spi_receiver/ SPI slave 收二进制深度帧（待实现）
+│   ├── spi_receiver/ SPI slave 收二进制深度帧
+│   ├── qt_display/   Qt MIPI 屏实时深度图显示
 │   ├── cloud_syncer/ 5G 上传（已实现+e2e；归暂缓阶段，保留不动）
 │   ├── motor_controller/ 串口→STM32 电机（待实现）
-│   └── autostart/    BusyBox init.d（待实现）
+│   └── autostart/    BusyBox init.d（S95/S96）
+├── research/         算法研究（本机运行，不部署到哪吒/RK）
+│   ├── algorithms/   传统算法（argmax、spatial_argmax 等）
+│   ├── eval/         评估指标 + 可视化
+│   ├── tests/        单元测试
+│   ├── ml_offline/   离线训练 + ONNX 导出（边缘推理路线）
+│   ├── datasets/     Gutierrez SimSPADDataset（.gitignore，本地缓存）
+│   └── out/          可视化输出（.gitignore）
 ├── cloud/            本地开发用 FastAPI（server/；5G 上云暂缓）
 │   └── server/       FastAPI 服务（main.py, models.py）
-├── ml_offline/       离线训练 + ONNX 导出（原 cloud/ml；边缘推理路线，不上云）
 ├── deploy/           部署脚本（paramiko SFTP）
 ├── refs/             参考文档（PF32 手册、RK3568 文档、USB转SPI 资料）
 └── docs/             设计文档、算法、连接/SPI 硬件说明

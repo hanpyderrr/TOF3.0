@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tof3.local/schema/session_manifest.schema.json",
+  "title": "TOF3.0 Session Manifest",
+  "description": "One file per acquisition session at ~/tof-data/sessions/<session_id>/manifest.json. Authoritative source for downstream pairing, training, A/B evaluation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["session_id", "start_time", "operator", "environment", "hardware"],
+  "properties": {
+    "session_id": {
+      "type": "string",
+      "pattern": "^[0-9]{8}T[0-9]{6}-[a-z0-9]{6}$",
+      "description": "YYYYMMDDTHHMMSS-<6char_rand>, e.g. 20260526T143012-a3f9k1"
+    },
+    "start_time": { "type": "string", "format": "date-time" },
+    "end_time":   { "type": ["string", "null"], "format": "date-time" },
+    "operator":   { "type": "string", "minLength": 1 },
+    "git_commit": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{7,40}$",
+      "description": "TOF3.0 repo HEAD at start_time, for reproducibility"
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hostname": { "type": "string" },
+        "ip":       { "type": ["string", "null"] }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["location", "scene_type"],
+      "properties": {
+        "location":    { "type": "string", "description": "Free-text, e.g. lab/tunnel/outdoor" },
+        "scene_type":  {
+          "type": "string",
+          "enum": ["calibration_target", "static_scene", "moving_scene", "fog_chamber", "free_field"]
+        },
+        "ambient_lux": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    "hardware": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pf32_serial":   { "type": ["string", "null"] },
+        "laser_model":   { "type": "string", "default": "YSC-SO-M04-4" },
+        "lens_id":       { "type": ["string", "null"] },
+        "pf32_mode":     { "type": "string", "enum": ["sys_master", "laser_master"], "default": "sys_master" },
+        "extstop_delay_ticks": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "PF32 EXTSTOP delay in 12.5ns ticks"
+        }
+      }
+    },
+    "fog": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "description": "Fog protocol; null = clear air",
+      "properties": {
+        "generator":    { "type": "string" },
+        "level":        { "type": "string", "enum": ["clear", "light", "medium", "dense"] },
+        "visibility_m": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    "calibration_target": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "target_id":         { "type": "string" },
+        "geometry":          { "type": "string", "enum": ["flat_plate", "step", "sphere", "checkerboard", "edge"] },
+        "true_distance_mm":  { "type": "number", "minimum": 0 },
+        "reflectance":       { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+      }
+    },
+    "pair_with": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9]{8}T[0-9]{6}-[a-z0-9]{6}$",
+      "description": "Paired session_id (typically clear-air counterpart of a fog session)"
+    },
+    "notes": { "type": "string" }
+  }
+}

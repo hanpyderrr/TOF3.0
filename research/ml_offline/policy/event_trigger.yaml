@@ -1,0 +1,37 @@
+# 事件触发策略 — raw .tch 是否保留 (起步值)
+#
+# acquisition 主线程每帧根据 Q 滚动统计 + 时间规则判定是否落盘 raw 直方图。
+# 现在的阈值都是先**定个起步值**,真实数据回来后(Phase B,有 ≥1k 帧 Q 历史)
+# 用 Q 实测分布重新标定。改动时把旧值留在注释里。
+
+q_outlier_high:
+  # SBR 显著高出滚动均值时保留(高质量样本,值得训练)
+  metric: quality.sbr
+  baseline_window_frames: 100        # starter, tune after 1k frames
+  threshold_sigma: 3.0               # starter, tune after Q 分布稳定
+
+q_outlier_low:
+  # SBR 显著低于滚动均值时保留(边界/失败样本,debug 价值高)
+  metric: quality.sbr
+  baseline_window_frames: 100        # starter
+  threshold_sigma: 3.0               # starter
+
+scheduled_sample:
+  # 周期采样,保证有"代表性帧"(即使无异常),
+  # 防止训练集只有"边界样本"导致偏置
+  every_n_frames: 600                # starter ≈ 5min @2fps
+
+manual:
+  # 操作员手动触发:把字符串(用作 reason)写入此文件,
+  # 采集线程读取后清空,记进 frame_record.raw_kept_reason
+  trigger_file: ~/tof-data/.raw_keep_request
+
+# 磁盘容量保护(优先级最高:触及任一上限立即停 raw 保留)
+disk_guard:
+  min_free_gb: 50                    # starter
+  oldest_session_purge_hours: 168    # starter = 7 天前 raw 自动清(只清 raw, depth 留)
+
+# 标定指引(Phase B 真实数据回来后做)
+# 1. 关闭 q_outlier_*, 只跑 scheduled_sample 收集 ≥10k 帧
+# 2. 看 quality.sbr 分布的 σ 和长尾, 调 threshold_sigma 让保留率 ~1-5%
+# 3. 估算每天保留 raw 体积,留 7 天 ≤ 50% 磁盘
