@@ -51,18 +51,21 @@ from algorithms.argmax import estimate as argmax_estimate
 from algorithms.lmf import estimate as lmf_estimate, LMFConfig
 from algorithms.bg_sub_argmax import estimate as spatial_estimate
 from algorithms.tail_bg_argmax import estimate as tail_estimate
+from algorithms.gaussian_fit import estimate as gauss_fit_estimate, GaussianFitConfig
+from algorithms.poisson_mle import estimate as pmle_estimate, PoissonMLEConfig
+from algorithms.rl_deconv import estimate as rl_estimate, RLDeconvConfig
 
 
 SAMPLES = [
-    "scene_group0/dining_room_0022/spad_0011_p1.mat",
-    "scene_group0/dining_room_0003/spad_0011_p1.mat",
-    "scene_group0/living_room_0008/spad_0011_p1.mat",
-    "scene_group0/home_office_0006/spad_0011_p1.mat",
-    "scene_group0/office_0002c/spad_0011_p1.mat",
+    "dining_room_0022/spad_0011_p1.mat",
+    "dining_room_0003/spad_0011_p1.mat",
+    "living_room_0008/spad_0011_p1.mat",
+    "home_office_0006/spad_0011_p1.mat",
+    "office_0002c/spad_0011_p1.mat",
 ]
 DATA_ROOT = ROOT / "datasets"
 PSF_PATH = str(DATA_ROOT / "PSF_64x64.mat")
-OUT_PATH = ROOT / "out" / "pf32_prep" / "A_depth_grid.png"
+OUT_PATH = ROOT / "out" / "pf32_prep" / "A_depth_grid_all.png"
 
 
 def _ds_depth(sample, attr: str) -> np.ndarray | None:
@@ -85,13 +88,17 @@ def _hit200(pred: np.ndarray, gt: np.ndarray) -> float:
 
 def _algos_for(sample):
     """Return ordered list of (name, depth_mm)."""
+    _psf_ok = Path(PSF_PATH).exists()
     out = []
     out.append(("argmax_spad",   argmax_estimate(sample).depth_mm))
     out.append(("lmf_gauss",     lmf_estimate(sample, LMFConfig(irf_sigma_bins=2.5)).depth_mm))
-    out.append(("lmf_real",      lmf_estimate(sample, LMFConfig(irf_path=PSF_PATH)).depth_mm))
-    out.append(("lmf_real_pc",   lmf_estimate(sample, LMFConfig(irf_path=PSF_PATH, per_column=True)).depth_mm))
+    if _psf_ok:
+        out.append(("lmf_real",    lmf_estimate(sample, LMFConfig(irf_path=PSF_PATH)).depth_mm))
+        out.append(("lmf_real_pc", lmf_estimate(sample, LMFConfig(irf_path=PSF_PATH, per_column=True)).depth_mm))
     out.append(("spatial_3x3",   spatial_estimate(sample).depth_mm))
     out.append(("tail_bg",       tail_estimate(sample).depth_mm))
+    out.append(("poisson_mle",   pmle_estimate(sample, PoissonMLEConfig()).depth_mm))
+    out.append(("rl_deconv10",   rl_estimate(sample, RLDeconvConfig(n_iter=10)).depth_mm))
     for tag, attr in [
         ("ds_argmax", "est_argmax_bins"),
         ("ds_lmf",    "est_lmf_bins"),

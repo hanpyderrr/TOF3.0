@@ -1,6 +1,8 @@
 # 算法研究态代码架构
 
-> **范围**:`nezha/algorithm/` 阶段 1-3 算法研究态。
+> **范围**:`research/` 阶段 1-3 算法研究态。
+> ⚠️ **路径说明**：本文原写于 `nezha/algorithm/`，2026-05-27/28 已整体迁移到 `research/`，
+> 所有 `nezha/algorithm/` 路径请按 `research/` 理解。
 > **配套**:
 > - `docs/algorithm_test_plan.md` — 测试/实验方案("做什么实验,过什么阈值")
 > - 本文 — 代码组织方案("代码怎么分层,接口长什么样")
@@ -176,7 +178,7 @@ nezha/algorithm/
 
 | 路径 | 现阶段动?| 说明 |
 |------|---------|------|
-| `nezha/algorithm/` | ✅ **唯一活跃区域** | 算法研究全在此 |
+| `research/` | ✅ **唯一活跃区域** | 算法研究全在此（原 `nezha/algorithm/`，已迁移） |
 | `nezha/acquisition/` | ❌ 不动 | PF32 工程化降级阶段 |
 | `nezha/qt_app/` | ❌ 不动 | 算法收敛后再对接 |
 | `ml_offline/` | ❌ 不动 | 工程化降级阶段才用 |

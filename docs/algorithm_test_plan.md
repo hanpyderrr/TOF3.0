@@ -17,17 +17,17 @@
 
 ## 代码位置
 
-算法研究统一放 `nezha/algorithm/`(与现有 `tof_sim.py` / `tof_process.py` v1 原型同处)。
-PF32 工程化对接相关(`ml_offline/`、`nezha/ml_runtime/`、`acquisition/raw_recorder` 等)**本期不涉及**。
+> ⚠️ **路径说明**：算法研究已于 2026-05-27/28 从 `nezha/algorithm/` 整体迁移到 `research/`。
+
+算法研究统一放 `research/`（原 `nezha/algorithm/`，PF32 工程化对接相关不在本期范围）。
 
 ```
-nezha/algorithm/
+research/
 ├── tof_sim.py          v1 原型 (留原地,作 baseline)
 ├── tof_process.py      v1 处理 (留原地)
-├── peak_detect.h       (C 端等价,留原地)
-├── sim_spad_loader.py  [新] Gutierrez 数据加载器
-├── inject_fog.py       [新] 跨雾模型注入工具(阶段 2)
-├── datasets/           [新] 公开数据本地缓存 (.gitignore)
+├── sim_spad_loader.py  Gutierrez 数据加载器
+├── inject_fog.py       跨雾模型注入工具
+├── datasets/           公开数据本地缓存 (.gitignore)
 └── eval/               [新] 算法对比 + 出图
 ```
 

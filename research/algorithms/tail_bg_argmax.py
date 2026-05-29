@@ -3,14 +3,15 @@ algorithms/tail_bg_argmax.py — 尾部背景估计 + argmax
 
 功能
 ----
-取直方图末端 N 个 bin（远距区，假设无目标）的均值作为均匀背景估计，
+取直方图远端 N 个 bin（假设无目标信号）的均值作为均匀背景估计，
 逐 bin 减去后再 argmax。不依赖 IRF，对均匀背景天然有效。
 
 上游
 ----
 - 输入：``sim_spad_loader.SpadSample``
-- 配置：``TailBgArgmaxConfig(tail_bins=100, min_counts=0.0)``
+- 配置：``TailBgArgmaxConfig(tail_bins=100, min_counts=0.0, tail_side="auto")``
   - ``tail_bins`` 太小 → 背景估计噪声；太大 → 把目标也包进去
+  - ``tail_side`` 控制从哪端取背景（详见备注）
 
 下游
 ----
@@ -24,16 +25,26 @@ algorithms/tail_bg_argmax.py — 尾部背景估计 + argmax
 
 备注
 ----
-- 注意 ``start_stop`` 方向：loader 在 reverse 模式下会把 hist 翻转，所以**这里统一
-  取末尾 100 bin**——对 forward 数据是远距大 bin，对 reverse 数据已被 loader 翻成远距。
-- 与 ``bg_sub_argmax`` 是**互补**的：一个抑制时序背景，一个增加空间光子；理论上可叠加。
-- **未接入 run_sanity**，待补；下一步 Step 2 该跑一遍 5 样本均值。
-- 雾天指数背景（近距强尾巴）不能用 tail 估计——尾部 bin 在 reverse 下反而是雾峰
-  最强处。雾天版应改成"近距尾"或用指数模型拟合（参考 M2R3D / Tobin 2021）。
+loader 对 reverse start_stop 已翻转 hist，翻转后：
+  index 0 = 远端（原 bin BINS-1），index BINS-1 = 近端（原 bin 0）
+
+tail_side 选项：
+  "far"（推荐）：始终取远端 N bin 做背景估计
+    forward → 取末尾 N bin（index BINS-N .. BINS-1 = 远端）
+    reverse → 取首部 N bin（index 0 .. N-1 = 远端，因翻转后远端在最前）
+  "near"：始终取近端 N bin（雾天近端散射强，不适合做背景，仅对比用）
+  "auto"：等同 "far"
+
+雾天正确用法：``tail_side="far"``（默认）。
+若 ``tail_side="last"``（历史默认行为），reverse 时取的是近端强散射区，背景高估
+会把目标峰也减掉，雾天 reverse 数据必崩。
+
+与 ``bg_sub_argmax`` 互补：一个抑制时序背景，一个增加空间光子；理论上可叠加。
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 import numpy as np
 
@@ -43,20 +54,36 @@ from sim_spad_loader import BINS
 
 @dataclass
 class TailBgArgmaxConfig(AlgoConfig):
-    tail_bins: int = 100    # tail bins used to estimate background level
-    min_counts: float = 0.0 # minimum residual peak to declare valid
+    tail_bins: int = 100
+    min_counts: float = 0.0
+    tail_side: Literal["far", "near", "auto"] = "far"
 
 
 def estimate(sample, cfg: TailBgArgmaxConfig | None = None) -> DepthEstimate:
-    """Subtract tail-estimated background, then argmax the residual."""
+    """Subtract far-range background estimate, then argmax the residual."""
     if cfg is None:
         cfg = TailBgArgmaxConfig()
 
-    hist = sample.hist  # (H, W, BINS) float32, already flipped for reverse start_stop
+    hist = sample.hist  # (H, W, BINS), loader已对reverse翻转：index0=远端, BINS-1=近端
 
-    # Tail = last `tail_bins` columns (far range, no signal expected in either direction
-    # because loader already flips reverse histograms so index 0 = nearest, BINS-1 = farthest)
-    tail = hist[:, :, -cfg.tail_bins:]          # (H, W, tail_bins)
+    side = cfg.tail_side
+    if side == "auto":
+        side = "far"
+
+    # loader翻转后：index 0=远端，index BINS-1=近端
+    # far  → forward取末尾（远端），reverse取首部（远端）
+    # near → forward取首部（近端），reverse取末尾（近端）
+    if side == "far":
+        if sample.start_stop == "reverse":
+            tail = hist[:, :, :cfg.tail_bins]   # 首部 = 远端
+        else:
+            tail = hist[:, :, -cfg.tail_bins:]  # 末尾 = 远端
+    else:  # "near"
+        if sample.start_stop == "reverse":
+            tail = hist[:, :, -cfg.tail_bins:]  # 末尾 = 近端
+        else:
+            tail = hist[:, :, :cfg.tail_bins]   # 首部 = 近端
+
     bg = tail.mean(axis=2, keepdims=True)        # (H, W, 1) uniform background estimate
 
     hist_sub = np.maximum(hist - bg, 0.0).astype(np.float32)

@@ -1,7 +1,7 @@
 # 工作进度
 
-> 最后更新：2026-05-28
-> 主控：Claude Opus 4.7
+> 最后更新：2026-05-30
+> 主控：Claude Sonnet 4.6
 
 ---
 
@@ -86,6 +86,45 @@
 ---
 
 ## 已完成工作记录
+
+### 2026-05-30 — motor_ctl.py 完成 + 激光验证工具 + Phase C 奇偶校验 + 文档整理
+
+**硬件层**：
+- 接线方案最终确认：激光 P4 RX ← 哪吒 CN3 pin 8（3.3V TTL，无需升压，VIH=2.0V）；激光 P4 TX → 10kΩ+20kΩ 分压 → 哪吒 CN3 pin 10（保护 GPIO）；P3 TTL 外触发 ← PF32 TRIG 直接同轴（已在 `refs/hardware/` 各 `.md` 沉淀）
+
+**RK3568 电机控制**：
+- 新建 `rk3568/motor_controller/motor_ctl.py`：Python 3.8，pyserial，完整实现 6 个电机动作，CLI 接口；协议严格对齐 `motoruart.cpp`（`FF 02 [dev] [cmdHi] [cmdLo] [chk]`，19200 8N1，`/dev/ttyS4`）
+- 板上物理验证待做
+
+**哪吒激光 UART 验证工具**：
+- 新建 `nezha/qt_app/laser_verify.py`：一次性验证脚本，CRC16 Modbus，func=0x06 读参数；`--scan` 自动搜串口；`--set-level`/`--set-external-trigger` 设置选项；**非生产驱动，仅调试用**
+
+**算法研究 Phase C**：
+- 新建 `research/run_reverse_parity.py`：加载 5 样本（同时 forward/reverse），6 算法各跑两遍，像素级深度比对（atol=0.5mm）
+- 运行结果：**所有算法一致性 0.35–0.89（未达 100%）**，标记 BUG；根因待查（GT 深度在两种加载模式下是否一致？）
+- `research/algorithms/tail_bg_argmax.py`：修复 reverse 模式下 tail 选取方向 bug（loader flip 后 index 0=FAR，原注释相反）；新增 `tail_side: Literal["far","near","auto"]` 配置项
+
+**文档整理（本次）**：
+- CLAUDE.md：新增 PDF 阅读规范（同名 `.md` + 目录 `README.md`，优先读 `.md`）
+- 补建 `refs/hardware/` 三个硬件 PDF 的 `.md` 摘要文件 + `README.md` 索引
+- 新建 `refs/pf32/docs/README.md`（10 个 PDF 一行索引 + TCSPC 模式说明）
+- 新建 `refs/usb_spi/README.md`（适配器版本目录 + 调用序列）
+- `docs/algorithm_code_architecture.md`：标注路径已迁移 `nezha/algorithm/` → `research/`
+- `docs/algorithm_test_plan.md`：同步路径迁移说明
+- `docs/rk3568_framework.md`：§3.3 标注 motor_ctl.py 已完成
+
+**laseruart 详细分析（`nezha/qt_app/laseruart.cpp`）**：
+- `sendFrame()` 不读回显（缓冲区积压）；`readParams()` 用阻塞 `msleep(50)` + 字段映射未实物核实；生产安全：`setExternalTrigger` 启动一次，`setLevel` 由 FeedbackController 调用即可
+- `readParams()` 字段映射留存疑，待实物 sscom 抓包后修正
+
+**遗留**：
+- Phase C 奇偶校验 BUG 原因未查：可能是 GT 深度在 forward/reverse 加载模式下本身不一致
+- `laser_verify.py` 物理验证未做（激光器未接线）
+- `motor_ctl.py` 板上物理验证未做（STM32 响应未确认）
+- FeedbackController `evaluateFocus()` 仍为存根（空壳）
+- Phase D（32×32 binning 仿真）、Phase E（雾注入退化曲线）待做
+
+---
 
 ### 2026-05-29 — 改版底板 UART 调研收口 + 激光接线方案 + PF32 准备 A/B 阶段
 

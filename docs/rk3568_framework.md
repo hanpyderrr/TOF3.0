@@ -116,7 +116,9 @@ CloseUsb(0)
 
 > 旧 `SinglePhoton207_5` 是读 `received.dat` 文本帧刷新；本程序改为消费二进制 TofFrame，渲染逻辑可参考旧 `image`/`mainwindow`。
 
-### 3.3 motor_controller —— 镜头调焦电机
+### 3.3 motor_controller —— 镜头调焦电机 ✅
+
+> **状态**：`rk3568/motor_controller/motor_ctl.py` 已实现（2026-05-30）。CLI：`python3 motor_ctl.py slide forward [rough]`。板上物理验证待做。
 
 **链路**：RK3568 串口 → STM32F103 → TMC2209 → 镜头电机（滑台调焦 + 齿轮光圈）
 

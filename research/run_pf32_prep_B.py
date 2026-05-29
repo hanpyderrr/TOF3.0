@@ -63,11 +63,11 @@ from run_accumulation import _simulate_k_shots
 
 
 SAMPLES = [
-    "scene_group0/dining_room_0022/spad_0011_p1.mat",
-    "scene_group0/dining_room_0003/spad_0011_p1.mat",
-    "scene_group0/living_room_0008/spad_0011_p1.mat",
-    "scene_group0/home_office_0006/spad_0011_p1.mat",
-    "scene_group0/office_0002c/spad_0011_p1.mat",
+    "dining_room_0022/spad_0011_p1.mat",
+    "dining_room_0003/spad_0011_p1.mat",
+    "living_room_0008/spad_0011_p1.mat",
+    "home_office_0006/spad_0011_p1.mat",
+    "office_0002c/spad_0011_p1.mat",
 ]
 K_VALUES = [1, 2, 4, 8, 16, 32, 64]
 TRIALS = 3

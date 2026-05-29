@@ -47,14 +47,17 @@ from algorithms.argmax import estimate as argmax_estimate, ArgmaxConfig
 from algorithms.lmf import estimate as lmf_estimate, LMFConfig
 from algorithms.bg_sub_argmax import estimate as spatial_estimate
 from algorithms.tail_bg_argmax import estimate as tail_estimate
+from algorithms.gaussian_fit import estimate as gauss_fit_estimate, GaussianFitConfig
+from algorithms.poisson_mle import estimate as pmle_estimate, PoissonMLEConfig
+from algorithms.rl_deconv import estimate as rl_estimate, RLDeconvConfig
 
 
 SAMPLES = [
-    "scene_group0/dining_room_0022/spad_0011_p1.mat",
-    "scene_group0/dining_room_0003/spad_0011_p1.mat",
-    "scene_group0/living_room_0008/spad_0011_p1.mat",
-    "scene_group0/home_office_0006/spad_0011_p1.mat",
-    "scene_group0/office_0002c/spad_0011_p1.mat",
+    "dining_room_0022/spad_0011_p1.mat",
+    "dining_room_0003/spad_0011_p1.mat",
+    "living_room_0008/spad_0011_p1.mat",
+    "home_office_0006/spad_0011_p1.mat",
+    "office_0002c/spad_0011_p1.mat",
 ]
 TOLS_MM = [12, 24, 60, 200]
 DATA_ROOT = ROOT / "datasets"
@@ -87,13 +90,21 @@ def run() -> dict:
     """Return {algo: [(sample_id, metrics_dict), ...]}."""
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
+    _psf_ok = Path(PSF_PATH).exists()
+    if not _psf_ok:
+        print(f"[warn] PSF_64x64.mat not found, skipping lmf_real/lmf_real_pc", file=sys.stderr)
     algos = [
         ("argmax_spad",   lambda s: argmax_estimate(s).depth_mm),
         ("lmf_gauss_2.5", lambda s: lmf_estimate(s, LMFConfig(irf_sigma_bins=2.5)).depth_mm),
-        ("lmf_real",      lambda s: lmf_estimate(s, LMFConfig(irf_path=PSF_PATH)).depth_mm),
-        ("lmf_real_pc",   lambda s: lmf_estimate(s, LMFConfig(irf_path=PSF_PATH, per_column=True)).depth_mm),
+        *([
+            ("lmf_real",    lambda s: lmf_estimate(s, LMFConfig(irf_path=PSF_PATH)).depth_mm),
+            ("lmf_real_pc", lambda s: lmf_estimate(s, LMFConfig(irf_path=PSF_PATH, per_column=True)).depth_mm),
+        ] if _psf_ok else []),
         ("spatial_3x3",   lambda s: spatial_estimate(s).depth_mm),
         ("tail_bg_argmax",lambda s: tail_estimate(s).depth_mm),
+        ("gauss_fit",     lambda s: gauss_fit_estimate(s, GaussianFitConfig()).depth_mm),
+        ("poisson_mle",   lambda s: pmle_estimate(s, PoissonMLEConfig()).depth_mm),
+        ("rl_deconv_i10", lambda s: rl_estimate(s, RLDeconvConfig(n_iter=10)).depth_mm),
     ]
     ds_algos = [
         ("ds_argmax", "est_argmax_bins"),
@@ -165,6 +176,7 @@ def plot(results: dict, png_path: Path) -> Path:
     order = [
         "argmax_spad", "lmf_gauss_2.5", "lmf_real", "lmf_real_pc",
         "spatial_3x3", "tail_bg_argmax",
+        "gauss_fit", "poisson_mle", "rl_deconv_i10",
         "ds_argmax", "ds_lmf", "ds_zncc",
     ]
     algos = [a for a in order if a in results]
