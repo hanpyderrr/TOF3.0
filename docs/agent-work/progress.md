@@ -31,6 +31,8 @@
 | RK3568 开机自启 | ✅ S95/S96 已装并验证；旧 `S51mydisplay`/`S99myspireceive` 改名 `DISABLED.*` 真正禁用 |
 | ToF 雾分离算法早期原型 | ✅ `research/tof_sim.py` + `research/tof_process.py` 仿真验证（中雾 4m：argmax 16%→分离 96%）；**PF32 reverse 路线，与当前 research/algorithms/ 主线分歧** |
 | 算法研究 Phase A（Gutierrez 64×64 forward 路线） | ✅ `research/` 主线：5 算法实测，argmax_spad 0.579≈ds_argmax 0.580；spatial_3x3 47.8% > lmf 37.5%（低 SBR 低光子） |
+| **改版底板 UART 调研 + 激光接线方案** | ✅ 改版板 STM32/TMC2209 板上焊死；电机 = `/dev/ttyS4`（开放项 O2 关闭）；激光接线方案 = 拔 JP3 跳线 → `/dev/ttyS3`；权威文档 `docs/board_custom_uart_mapping.md` |
+| **PF32 准备 阶段 A baseline + 阶段 B 多帧累加** | ✅ 9 算法对比 grid + 累加曲线；结论：PF32 LMF 选 σ≈2.5、spatial_3x3 单帧之冠 0.719、K=4 (~2s) 可达 95% hit@200 |
 
 ---
 
@@ -84,6 +86,67 @@
 ---
 
 ## 已完成工作记录
+
+### 2026-05-29 — 改版底板 UART 调研收口 + 激光接线方案 + PF32 准备 A/B 阶段
+
+**硬件层（RK3568 改版底板）**：
+- 改版底板原理图入库：`refs/hardware/ATK-DLRK3568_改版底板原理图_2026-05-29.pdf`
+  - 改版相对原版 V1.5：STM32F103C8T6 + TMC2209 ×2 **板上焊死**；新增 RS422；删除 RS232/CAN/Audio/HDMI/TF/IR/6 轴/HW_ID/KEY 矩阵
+- 串口连板（CH340 @1.5M）+ Python `pyserial` 慢写（每 3 字节 6ms）+ marker 同步（count==2 区分回显/执行）确认 UART 设备树实测：
+  - `/dev/ttyS3` ← UART3 (`fe670000`) okay ← JP3 短接 1-3/2-4 → **RS422 收发器**（未接外设）
+  - `/dev/ttyS4` ← UART4 (`fe680000`) okay ← JP2 短接 3-5/4-6 → **STM32 USART1**（电机控制 通道）
+  - `/dev/ttyS8` ← UART8 (`fe6c0000`) okay ← 引出位置原理图未找到
+  - UART9 (`fe6d0000`) **disabled** ← JP4 pin 1/2 物理引出但内核未启用，激光不能直接接 JP4
+  - UART2 disabled 但 Rockchip FIQ Debugger 接管，跑 ttyFIQ0 调试控制台
+- **开放项 O2 关闭**：STM32 ↔ RK3568 节点确定为 `/dev/ttyS4`
+- 激光放哪权衡：最终**保持 CLAUDE.md 锁定决策——激光留哪吒**（PF32 TRIG 物理就近 +
+  闭环延迟最低 + `laseruart.cpp` 已就绪）。3568 上的 ttyS3 "拔 JP3 跳线接激光"
+  方案保留为**备案**（仅哪吒不在手的临时调试用）。
+- 沉淀文档：`docs/board_custom_uart_mapping.md`（权威）
+
+**算法层（PF32 准备工作 A/B 阶段）**：
+- 计划：`docs/algorithm_pf32_prep_plan.md` 6 阶段，图表为主
+- 阶段 A baseline 补全：`lmf.py` 加真 IRF 支持（gauss/real/per-column 三模式），5 样本 × 9 算法
+  对比图 + 深度图 grid；结论 **PF32 LMF 选 σ≈2.5 高斯即可**（真 IRF 增益 ≤0.1pp），
+  **spatial_3x3 是单帧之冠** hit@200mm 0.719 + 唯一视觉干净
+- 阶段 B 多帧累加：5 样本 × K∈[1..64] × 3 trials × 4 算法物理累加曲线；结论 **spatial_3x3 K≤4 之王 K≥8 卡顶 96.7%**、
+  **lmf_gauss K≥8 锁 99%**、PF32 工程"积 K=4 (~2 秒) 可达 95% hit@200mm"
+
+**仓库文档同步**：
+- `CLAUDE.md` 硬件表加 STM32/TMC2209 板上集成 + 电机节点 ttyS4
+- `docs/rk3568_framework.md` UART 表更新、开放项 O2 划线收口
+- `rk3568/motor_controller/README.md` 节点确定为 ttyS4
+
+**完工度盘点（2026-05-29 收尾）**：
+
+| 维度 | 完成 | 待办 |
+|------|------|------|
+| 哪吒 硬件 | 主机/PF32/SPI master/局域网 | ❓ 激光器 USB-UART 物理连接、❓ 激光 P3 ← PF32 TRIG 同步线 |
+| 哪吒 软件 | acquisition/qt_app/laseruart/spi_syncer/cloud_syncer/systemd | ⏳ FeedbackController 闭环规则、⏳ 真实 PF32 联调 (P7) |
+| 3568 硬件 | 改版板/STM32+TMC2209/MIPI/5G/CH340/UART 实测 | ❓ MOTOR1/MOTOR2 步进电机外接 |
+| 3568 软件 | spi_receiver/qt_display/S95/S96 自启 | ⏳ motor_ctl.py、❓ STM32 固件实板响应未验证 |
+| 5G 链路 | cloud_syncer 离线 e2e | ⏸ net_manager + 真实云端，**暂缓** |
+| 跨机链路 | 哪吒→3568 SPI 实时深度（端到端实测）| ⏳ 3568→哪吒 反向控制（O1，激光留哪吒后基本不需要）|
+| 算法 research | Phase A baseline + PF32 准备 阶段 A/B | ⏳ PF32 准备 C/D/E/F、⏳ research→nezha/algorithm 部署、⏸ ML 长线 |
+
+**最大缺口**（按优先级）：
+1. 🔴 物理接线现状确认（5 分钟肉眼检查）：MOTOR1/MOTOR2 电机、激光接线、激光 P3 TRIG
+2. 🔴 `motor_ctl.py` Python 写出来（节点 ttyS4、协议已定）
+3. 🔴 哪吒 wafer/GPIO 引脚定义获取（datasheet 只有规格，需补 AAEON 用户手册 pinout），定后激光走原生 UART
+4. 🔴 激光实物验证（哪吒 UART + Modbus 读参数）
+5. 🔴 真实 PF32 联调（ExampleTOF 替代 sim_pf32）
+6. 🟡 PF32 准备 C/D/E（reverse 对齐 / 32×32 binning / 雾注入）
+7. 🟡 FeedbackController 激光闭环规则
+8. 🟡 research → nezha/algorithm 部署
+9. 🟢 5G 上云、ML 训练（长线 / 暂缓）
+
+**硬件认知修正（2026-05-29 后期发现）**：
+- 哪吒**不是消费 Intel NUC**，是 AAEON 研扬"哪吒开发套件"嵌入式 SBC（Intel N97 / Alder Lake-N，仿树莓派 85×56mm 板型）
+- 哪吒板上 11 个连接器（CN1~CN11）：CN3=40-pin HAT GPIO、CN7=10-pin USB/UART wafer、CN9=Front Panel、CN10=DC Power wafer、CN11=Fan 等
+- 完整 pinout 入库：`refs/hardware/AAEON_哪吒_用户手册_含pinout.pdf`（4 页带 HAT 40 引脚定义全表）
+- **HAT GPIO UART 位置**：CN3 **pin 8 = UART_TX/GPIO16**、**pin 10 = UART_RX/GPIO17**、pin 9 = GND（与树莓派同位置）
+- HAT 电平 = 3.3V TTL；激光器 = 5V TTL → 中间需要 **5V↔3.3V 双向电平转换板**（TXS0108E 类，淘宝几块）
+- 激光接哪吒最终方案：哪吒 CN3 pin 8/10 → 电平转换 → 激光 RX/TX；激光 5V 控制电源 + +/- 大功率电源走独立适配器；激光 P3 ← PF32 TRIG 直接同轴连
 
 ### 2026-05-26 (深夜) — 架构 Q1–Q5 + 阶段 1 计划定稿
 

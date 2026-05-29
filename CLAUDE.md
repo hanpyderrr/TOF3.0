@@ -22,12 +22,16 @@ TOF 单光子 3.0：双机协作架构。
 
 | 设备 | 规格 | 连接 |
 |------|------|------|
-| 哪吒 NUC | Intel N97，x86_64，Ubuntu，**生产无网络** | SSH: ding/1234（调试期） |
-| RK3568 | ATK-DLRK3568，aarch64，Buildroot，内核 4.19，**有 5G** | 串口 /dev/ttyUSB0@1500000；USB 接 SPI 适配器 |
+| 哪吒 SBC | **AAEON「哪吒」开发套件**（Intel N97 / Alder Lake-N，x86_64 嵌入式 SBC，仿树莓派 85×56mm），Ubuntu，**生产无网络**。**40-pin HAT GPIO** + 10-pin USB/UART wafer（CN7）+ HDMI + 3×USB3 + 1GbE。HAT UART 在 CN3 pin 8 (TX) / pin 10 (RX)，3.3V TTL。规格 `refs/hardware/AAEON_哪吒_用户手册_含pinout.pdf` | SSH: ding/1234（调试期） |
+| RK3568 | **ATK-DLRK3568 改版底板**（基于 V1.5），aarch64，Buildroot，内核 4.19，**有 5G** | 串口 /dev/ttyUSB0@1500000；USB 接 SPI 适配器 |
 | PF32 探测器 | 32×32 SPAD，TCSPC，55ps/bin，TCSPC **sys_master**（出 TRIG） | USB（Opal Kelly）→ 哪吒 |
-| 激光驱动器 | YSC-SO-M04-4，Modbus RTU 9600 8N1，**PF32 TRIG 外触发** | USB-UART → 哪吒 /dev/ttyUSB0；TTL 外触发 ← PF32 TRIG |
-| STM32F103 | 调焦电机控制，TMC2209 | → RK3568 串口（19200 8N1，节点待定） |
+| 激光驱动器 | YSC-SO-M04-4，Modbus RTU 9600 8N1（**激光侧 5V TTL**），**PF32 TRIG 外触发** | 推荐 **哪吒 HAT CN3 pin 8/10 UART** + 5V↔3.3V 电平转换板 → 激光 TTL 串口；TTL 外触发 P3 ← PF32 TRIG（独立同轴） |
+| STM32F103C8T6 | 调焦电机控制 + 板内串口桥，**焊死在改版底板**（不再外挂模块） | USART1 → RK3568 **`/dev/ttyS4`**（JP2 短接 3-5/4-6，19200 8N1） |
+| TMC2209 ×2 | 步进电机驱动，**直接焊在改版底板** | STM32 GPIO → MOTOR1（调焦滑台）/ MOTOR2（光圈齿轮） |
 | USB转SPI 适配器 | STM32 方案，USB ID 0483:5740 | 哪吒 SPI 引脚 ↔ 适配器，适配器 USB ↔ RK3568 |
+
+> 改版板原理图：`refs/hardware/ATK-DLRK3568_改版底板原理图_2026-05-29.pdf`
+> UART 全表 + JP 跳线 + 激光接线方案：`docs/board_custom_uart_mapping.md`（权威）
 
 ## SPI 链路（哪吒 ↔ RK3568）
 
@@ -106,7 +110,7 @@ TOF3.0/
 │   ├── spi_receiver/ SPI slave 收二进制深度帧
 │   ├── qt_display/   Qt MIPI 屏实时深度图显示
 │   ├── cloud_syncer/ 5G 上传（已实现+e2e；归暂缓阶段，保留不动）
-│   ├── motor_controller/ 串口→STM32 电机（待实现）
+│   ├── motor_controller/ 串口→STM32 电机（待实现，节点已定 /dev/ttyS4）
 │   └── autostart/    BusyBox init.d（S95/S96）
 ├── research/         算法研究（本机运行，不部署到哪吒/RK）
 │   ├── algorithms/   传统算法（argmax、spatial_argmax 等）
@@ -130,7 +134,7 @@ TOF3.0/
 - 深度帧走 **SPI 实时流**；原始 TCSPC 只哪吒本地存档；**5G 上云暂缓**
 - SPI 传输失败不阻塞采集，数据继续本地积累
 - 激光控制 **留在哪吒**（FeedbackController 实时闭环，不过 SPI）。激光工作在 **PF32 外触发模式**（PF32 sys_master 出 TRIG → 激光 P3）：重复频率由 PF32 TRIG 决定，激光 `setFreqHz` 在外触发下无效，闭环只调电平/功率；`refs/pf32/docs/SyncInput_3300mV.pdf`（laser_master 反向接法）**不适用本项目**
-- 电机控制 **在 RK3568，直连 STM32 串口**（哪吒 `motoruart` 为过渡实现，最终迁出）
+- 电机控制 **在 RK3568，板内 STM32 + TMC2209**（改版底板焊死）；UART4/`ttyS4` 是 STM32 ↔ RK3568 通道（JP2 跳线短接 3-5/4-6）。哪吒 `motoruart` 为过渡实现，最终迁出
 - SPI 接收走 **USB转SPI 适配器**（非 RK3568 原生 SPI）
 
 ## 开发阶段

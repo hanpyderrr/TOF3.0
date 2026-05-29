@@ -120,9 +120,12 @@ CloseUsb(0)
 
 **链路**：RK3568 串口 → STM32F103 → TMC2209 → 镜头电机（滑台调焦 + 齿轮光圈）
 
+> 改版底板把 STM32F103C8T6 + TMC2209 ×2 **直接焊在主板上**，电机控制不再外接驱动板。
+> UART 走线、JP 跳线、电机接线柱位置详见 `docs/board_custom_uart_mapping.md`。
+
 | 项 | 值 |
 |----|----|
-| 串口 | 19200, 8N1；**RK3568 侧 /dev 节点待定**（ttyUSB0-4 已被 Quectel 5G 占且禁碰，STM32 应在硬件 UART /dev/ttySx，开放项 O2） |
+| 串口 | 19200, 8N1；**节点 = `/dev/ttyS4`**（UART4 M1 pinmux，JP2 跳线短接 3-5/4-6 → STM32 USART1 板内直连）。开放项 O2 **已关闭**。 |
 | 帧格式 | `0xFF 0x02 [device] [cmdHi] [cmdLo] [checksum]`（6 字节） |
 | checksum | `(0x02 + device + cmdHi + cmdLo) & 0xFF` |
 | device | `0x01`=直线滑台(调焦) `0x02`=齿轮(光圈) |
@@ -185,7 +188,7 @@ STM32 侧：`legacy/.../STM32F103_lensfocus_TMC2209`（uart1@19200，1/16 微步
 | # | 问题 | 说明 |
 |---|------|------|
 | O1 | 电机闭环控制通道 | 哪吒无网 + SPI 本阶段只有实时深度单向流 → 哪吒 `FeedbackController` 无法实时驱动 RK3568 电机。P8/P13 需控制通道。候选：①加一条反向 SPI 控制帧；②RK3568 本地/手动。当前默认②。 |
-| O2 | STM32 接 RK3568 哪个 /dev 节点 | ttyUSB0-4 是 Quectel 5G AT 口（禁碰）。STM32 应在硬件 UART（/dev/ttySx），待用户确认接线节点。 |
+| ~~O2~~ | ~~STM32 接 RK3568 哪个 /dev 节点~~ | **已关闭（2026-05-29）**：改版底板 STM32 焊死，JP2 跳线短接 3-5/4-6，STM32 USART1 ↔ RK3568 UART4，节点 `/dev/ttyS4`。详见 `docs/board_custom_uart_mapping.md`。 |
 | O3 | RK3568 本地电机触发入口 | 无 Qt 按钮时手动控制入口（命令行 / 简单 HTTP / 物理按键）？ |
 | O4 | 实时流时序细节 | 是否用适配器 INT 中断线；`SPISlavePreloadData` 用法；丢帧/重同步策略 |
 | O5 | 5G 拨号（暂缓阶段） | APN、拨号脚本、断线重连；公网云平台地址 |
@@ -200,7 +203,7 @@ STM32 侧：`legacy/.../STM32F103_lensfocus_TMC2209`（uart1@19200，1/16 微步
 | `libUSB2UARTSPIIIC.so`（aarch64/x86_64）未拷入 TOF3.0 | spi_receiver 无法交叉编译/联调 | 从 `单光子项目/RK3568相关代码/RK3568使用SPI接收数据代码/` 拷入 `rk3568/spi_receiver/deps/` 与 `rk3568/legacy/lib/`（板上 `/lib/libUSB2UARTSPIIIC.so` 已存在可取） |
 | 哪吒侧实时深度 SpiSyncer 未实现 | 链路上游缺失 | P-RT，`nezha/qt_app/` 新增 |
 | RK3568 spi_receiver + Qt 显示未实现 | 链路下游缺失 | P-RT，交叉编译 |
-| STM32 接 RK3568 串口节点未定 | motor_controller 无法落地 | 开放项 O2，待用户确认 |
+| ~~STM32 接 RK3568 串口节点未定~~ | ~~motor_controller 无法落地~~ | **已关闭（2026-05-29）**：`/dev/ttyS4`，详见 `docs/board_custom_uart_mapping.md` |
 | aarch64 交叉编译器未确认 | 出包依赖 | 确认 SDK 机 `aarch64-linux-gnu-gcc`（Linaro 6.3.1 匹配板子） |
 
 ---
