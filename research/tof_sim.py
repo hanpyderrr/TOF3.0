@@ -1,22 +1,43 @@
 """
-tof_sim.py — PF32 单光子 TCSPC 直方图物理模拟器（哪吒端算法原型）
+tof_sim.py — PF32 单光子 TCSPC 直方图物理模拟器（早期原型）
 
-产出与真实 PF32 API 完全一致的数据类型/布局：
-    getHistogram(pf32, buf, accumSeconds) -> uint16[noOfPixels x noOfTDCCodes]
-    本仿真：uint16 ndarray, shape (H, W, BINS) = (32, 32, 1024)
+⚠️ **路线状态**：早期 PF32 工程化原型，**reverse start-stop**（55 ps/bin、32×32），
+与当前算法研究主线（Gutierrez forward, 80 ps/bin, 64×64）方向分歧。
+**保留不动**用于演示物理建模思路 + `run_demo.py` 出图；新算法不要再扩展它，
+应该走 ``sim_spad_loader`` + Gutierrez 数据集。
 
-时序约定（反向 start-stop，与 peak_detect.h 一致）：
-    bin 越大 -> 飞行时间越短 -> 目标越近
-    dist_mm = (BINS - 1 - bin) * BIN_MM      BIN_MM = 55ps * c/2 = 8.25mm
-
-直方图分量（单像素）：
+功能
+----
+合成与真实 PF32 API 完全一致的 ``uint16[H, W, BINS]`` 直方图：
   1. 暗计数 + 环境光：每 bin 泊松小常数
-  2. 目标回波峰：高斯(sigma≈IRF)，幅度受 1/d^2 几何衰减 + exp(-2*alpha*d) 双程雾衰减
-  3. 雾后向散射：近距强、随距离指数衰减的拖尾（雾浓度越高越强）
-  4. 泊松噪声：对总期望取 Poisson，clip 到 uint16
+  2. 目标回波峰：高斯(sigma≈IRF) + 1/d² + exp(-2α·d) 双程雾衰减
+  3. 雾后向散射：近距强、随距离指数衰减
+  4. 泊松采样 → clip uint16
 
-物理依据：单光子 LiDAR 透雾的标准模型——目标峰 Beer-Lambert 双程衰减、
-雾后向散射在近距形成强散射峰（Gamma/指数形），是 argmax 测距在雾中失效的根因。
+时序约定（与 PF32 真机一致，反向 start-stop）：
+    bin 越大 -> 飞行时间越短 -> 目标越近
+    dist_mm = (BINS - 1 - bin) * BIN_MM,  BIN_MM = 55 ps × c/2 = 8.25 mm
+
+上游
+----
+- 无外部数据；纯合成
+- ``make_scene(fog_level, laser_power, ball_mm, bg_mm)`` 是主入口
+
+下游
+----
+- ``tof_process.py``（同一路线的算法原型，调用 ``BINS / BIN_MM / IRF_SIGMA_BINS``）
+- ``run_demo.py``（出 depth_compare / pixel_hist / sweep_distance 三图）
+
+依赖
+----
+- numpy
+- 不依赖任何真实数据集
+
+备注
+----
+- IRF_SIGMA_BINS=1.5 假设系统 IRF ~200 ps FWHM
+- ``make_scene`` 默认 5% 像素无目标，模拟低 SNR/边缘
+- 物理依据：单光子 LiDAR 透雾标准模型，雾近距散射峰是 argmax 失效根因
 """
 import numpy as np
 

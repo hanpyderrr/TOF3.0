@@ -1,12 +1,35 @@
-"""Tail-background-subtracted argmax.
+"""
+algorithms/tail_bg_argmax.py — 尾部背景估计 + argmax
 
-Estimates the uniform background level from the far-range tail bins
-(where no target signal is expected), subtracts it from every bin,
-then applies argmax on the residual.
+功能
+----
+取直方图末端 N 个 bin（远距区，假设无目标）的均值作为均匀背景估计，
+逐 bin 减去后再 argmax。不依赖 IRF，对均匀背景天然有效。
 
-This works because true target photons cluster into a narrow peak while
-background photons are spread uniformly — subtracting the tail mean
-improves peak-to-background ratio without requiring an IRF.
+上游
+----
+- 输入：``sim_spad_loader.SpadSample``
+- 配置：``TailBgArgmaxConfig(tail_bins=100, min_counts=0.0)``
+  - ``tail_bins`` 太小 → 背景估计噪声；太大 → 把目标也包进去
+
+下游
+----
+- 返回 ``contracts.DepthEstimate``，algo_name=``"tail_bg_argmax_t{N}"``
+- 通过 ``extras["bg_level"]`` 暴露背景估计（(H,W) 数组）供下游用
+
+依赖
+----
+- numpy
+- ``sim_spad_loader.BINS``
+
+备注
+----
+- 注意 ``start_stop`` 方向：loader 在 reverse 模式下会把 hist 翻转，所以**这里统一
+  取末尾 100 bin**——对 forward 数据是远距大 bin，对 reverse 数据已被 loader 翻成远距。
+- 与 ``bg_sub_argmax`` 是**互补**的：一个抑制时序背景，一个增加空间光子；理论上可叠加。
+- **未接入 run_sanity**，待补；下一步 Step 2 该跑一遍 5 样本均值。
+- 雾天指数背景（近距强尾巴）不能用 tail 估计——尾部 bin 在 reverse 下反而是雾峰
+  最强处。雾天版应改成"近距尾"或用指数模型拟合（参考 M2R3D / Tobin 2021）。
 """
 from __future__ import annotations
 

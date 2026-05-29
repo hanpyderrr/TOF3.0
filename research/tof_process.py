@@ -1,13 +1,43 @@
 """
-tof_process.py — TCSPC 直方图处理（哪吒端算法原型）
+tof_process.py — TCSPC 直方图处理（早期原型）
 
-提供两条路径，便于对比：
-  A) depth_argmax()    : 现有 peak_detect.h 的等价实现（直接取最大 bin）
-  B) depth_separate()  : 雾/目标分离 —— 扣暗本底 + 估散射包络并扣除
-                         + matched filter + 峰检测 + 亚 bin 精修
+⚠️ **路线状态**：与 ``tof_sim.py`` 同源的 PF32 reverse start-stop 路线，
+**与当前主线（Gutierrez forward、``research/algorithms/``）分歧**。
+保留不动用于 ``run_demo.py`` 出图；新算法都在 ``research/algorithms/`` 写。
 
-输出深度图(mm) + 每像素分离指标（SBR / 峰显著性 / 有效标志）。
-算法在 32x32 全帧上向量化/逐像素混合，原型以清晰为先。
+功能
+----
+两条路径，对比 baseline vs 雾分离：
+  A) ``depth_argmax(hist)``    : peak_detect.h 等价（直接取最大 bin）
+  B) ``depth_separate(hist)``  : 雾/目标分离 ——
+       扣暗本底（20% 分位）→ 中值滤波估散射包络 → matched filter（高斯卷积）
+       → MAD 估噪声 → find_peaks 取最显著峰 → 抛物线亚 bin 精修
+  + ``quality_score(sep)`` 出全图闭环目标 Q = 有效率 × tanh(平均显著性 / 10)
+  + ``eval_depth(pred, gt, tol_mm=300)`` 出 (rmse, good_rate, detect_rate)
+
+上游
+----
+- ``tof_sim.make_histograms / make_scene`` 出 hist
+- 仅供 ``run_demo.py`` 调用
+
+下游
+----
+- ``run_demo.py`` 出 depth_compare / pixel_hist / sweep_distance 三图
+- 历史上对应"主动调制闭环"的算法侧入口（commit 22 2026-05-22）
+
+依赖
+----
+- scipy.ndimage.median_filter / gaussian_filter1d
+- scipy.signal.find_peaks
+- ``tof_sim.{BINS, BIN_MM, IRF_SIGMA_BINS, bin_to_mm}``
+
+备注
+----
+- MIN_PEAK_COUNTS=5（与 PF32 C 端 ``peak_detect.h::PD_MIN_COUNTS`` 同步）
+- MIN_PROMINENCE=4σ（matched filter 残差中目标峰最小显著性）
+- ``depth_separate`` 是双重 for 循环逐像素跑——32×32 OK，64×64 慢，
+  迁到主线时应向量化
+- 当年实测：中雾 4 m 下 argmax 16% → 分离 96%（RMSE 2.4 mm）
 """
 import numpy as np
 from scipy.ndimage import median_filter, gaussian_filter1d

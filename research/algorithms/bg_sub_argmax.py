@@ -1,7 +1,36 @@
-"""Spatial-pooling argmax: aggregate neighbor histograms before peak detection.
+"""
+algorithms/bg_sub_argmax.py — K×K 空间池化后 argmax
 
-Summing K×K neighbor histograms multiplies effective photon counts by K²,
-raising SNR enough for argmax to find the true signal peak even at low SBR.
+功能
+----
+对每像素做 K×K 邻域直方图求和（uniform_filter），再 argmax。有效光子 ×K²，
+SNR 提升 K 倍。是单帧低 SBR 场景下**意外有效**的简单算法。
+
+上游
+----
+- 输入：``sim_spad_loader.SpadSample``
+- 配置：``SpatialArgmaxConfig(kernel=3, min_counts=1.0)``
+
+下游
+----
+- 返回 ``contracts.DepthEstimate``，algo_name=``"spatial_argmax_{k}x{k}"``
+- 被 ``run_sanity / run_benchmark / run_accumulation`` 调
+
+依赖
+----
+- scipy.ndimage.uniform_filter（reflect 边界）
+- numpy
+- ``sim_spad_loader.BINS``
+
+备注
+----
+- **⚠️ 文件名误导**：叫 ``bg_sub_argmax``（"背景减除"）但**实际并不减背景**，
+  做的是空间池化。真正的背景减除在 ``tail_bg_argmax.py``。命名待后续重构。
+- K=3 实测在 Gutierrez SBR=0.2 单样本上 hit@200mm = 47.8%，**显著超过 LMF 37.5%**——
+  原因：低光子（2 signal）场景下，9× 光子比 IRF 形状匹配带来的 4× SNR 更有用。
+- 边缘代价：池化越大边缘越糊。K=3 损失 1-2 像素边缘细节，可接受；K≥7 在精细
+  室内场景上会破坏物体边界。
+- 输出的 confidence 是池化后峰值 / 全图最大峰值，对应"该像素 9 邻域有多稠密"。
 """
 from __future__ import annotations
 

@@ -1,18 +1,37 @@
-"""Multi-shot accumulation experiment (physically correct simulation).
+"""
+run_accumulation.py — 多帧累加（K-shot integration）实验
 
-Each simulated shot is generated from first principles:
-  - Signal photons : Poisson(msph) per pixel, placed at GT depth via Gaussian IRF
-  - Background photons: Poisson(mbph) per pixel, placed uniformly over all bins
+功能
+----
+按物理一致方式合成 K 次曝光累加直方图（不是直接采样 rates，避免信号被烘焙）：
+  - signal: 每像素 Poisson(msph) 个光子，按高斯 IRF 投到 GT 深度附近的 bins
+  - background: 每像素 Poisson(mbph) 个光子，均匀分布在所有 BINS
+K 从 1 到 64 扫，每个 K 取多次 trial 平均。
 
-K shots are accumulated, which reduces the probability that a pixel receives
-zero signal photons (P(0) = exp(-K*msph)) and increases the signal-to-noise
-ratio of the accumulated histogram.
+上游
+----
+- 命令行：``[mat_file]`` ``--trials 5`` ``--irf-sigma 2.5`` ``--save``
+- ``sim_spad_loader.load_spad_mat`` 拿 GT depth / msph / sbr / IRF 配置
+- ``algorithms/{argmax, lmf, bg_sub_argmax}`` 在累加后的 hist 上跑
 
-This correctly models what happens as integration time grows, unlike sampling
-directly from the `rates` field which already has the signal peak baked in.
+下游
+----
+- 控制台 "K × algo × hit_rate" 表
+- ``--save`` 写 ``research/out/<sample_id>_accumulation.png``（双面板：hit/RMSE vs K，
+  含 ds_argmax / ds_lmf / real-spad-K=1 水平参考线）
 
-Usage:
-  python run_accumulation.py [mat_file] [--trials 5] [--irf-sigma 2.5] [--save]
+依赖
+----
+- matplotlib（Agg 后端，--save 时）
+- numpy
+
+备注
+----
+- K_VALUES 默认 [1,2,4,8,16,32,64]——log2 等距
+- mbph 由 msph / SBR 算得；每帧背景率 = mbph / BINS
+- **物理上限**：当 K·msph >> 1 后信号峰已远超背景方差，hit_rate 趋近 100%
+- 真实 spad 字段对应 K=1（但只有一次抽样，方差大）；本脚本提供多 trial 统计
+- 是 Step 3"工程上要做多长积分时间"的标准答案
 """
 from __future__ import annotations
 

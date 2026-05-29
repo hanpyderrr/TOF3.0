@@ -85,16 +85,41 @@ est_range_bins_zncc    (64,64)  uint16  数据集提供的 ZNCC 估计
 
 ### 核心差距：single shot vs ensemble
 
+> 以下数字来自 `research/run_verify_baseline.py`（2026-05-28 实测），跑 5 个不同场景的
+> `spad_0011_p1.mat` 样本，hit_rate 在 4 个容差档上取均值，RMSE 取均值。
+
 ```
-当前结果（spad_0011_p1）：
-  我们的 argmax on spad     → hit_rate = 8.6%,  RMSE = 2869 mm
-  数据集 argmax on rates    → hit_rate = 32.3%
-  数据集 LMF   on rates     → hit_rate = (更高)
-  数据集 ZNCC  on rates     → hit_rate = (更高)
+5 样本均值（hit@200mm / RMSE）：
+  argmax_spad   (单次泊松直接 argmax)             0.178   1976 mm
+  est_argmax    (数据集自带，在 spad 上算)         0.580   1815 mm
+  est_lmf       (数据集自带，在 spad 上算)         0.633   2359 mm
+  est_zncc      (数据集自带，在 spad 上算)         0.631   2383 mm
+  argmax_rates  (反归一化 rates 上 argmax，上界)   1.000     12 mm
 
 差距根源：
-  spad  = 单次泊松采样，背景噪声峰几乎必然盖过 2 光子信号峰
-  rates = 期望值（无限次平均），等价于无噪积分直方图
+  spad  = 单次泊松采样，每像素仅 ~12 个光子（2 signal + 10 background）
+  rates = 反归一化的期望直方图，等价于无穷长积分时间
+  est_* = 数据集制作者在带噪 spad 上预算的传统算法 baseline
+```
+
+**关键事实**：
+- `argmax_rates` RMSE 恰为 1 bin（12 mm），是 argmax 离散化的本征下界，**rates 上算法上界 ≈ 100%**。
+- `est_argmax`/`lmf`/`zncc` 三个数据集自带字段都是**在带噪 spad 上**算的（不是 rates）；其中 LMF 输出 max 可达 1031（>1024），看起来是循环卷积 padding 痕迹。
+- 场景间难度方差大：最难 dining_room_0022 spad-argmax 8.6%，最易 office_0002c 27.7%（4 倍），单样本结果不可推广。
+- 早期描述里把 0.323 称作 "rates 上 argmax 的上界" 属误传——它实际是 dining_room_0022/spad_0011_p1 这个**单样本**上 est_argmax 的 hit@200mm，与 rates 无关。
+
+**算法工作区间**：
+
+```
+0.178 ← 我们当前 baseline (argmax_spad)
+   │
+   │   ↑↑↑ Step 2 (tail_bg + 空间池化) / Step 3 (LMF with shared PSF) 目标区间
+   │
+0.633 ← 数据集传统算法天花板 (est_lmf/zncc on spad)
+   │
+   │   ↑↑↑ Step 4 (Poisson MLE 物理建模) 目标区间
+   │
+1.000 ← rates 无噪上界 (argmax_rates)
 ```
 
 ---
@@ -114,18 +139,24 @@ Level 5  ML 超分辨率 / 联合估计
 
 ---
 
-### Level 0：在 `rates` 上建立正确基线
+### Level 0：在反归一化 `rates` 上建立算法上界（已实测）
 
-**目的**：排除实现 bug，建立算法上界。
+**目的**：钉死算法上界，排除实现 bug。
+
+注意：`.mat` 文件里的 `rates` 字段是**归一化的**（值域 [0,1]），必须用同文件的
+`rates_norm_params.rates_offset/rates_scaling` 反归一化才能当期望直方图用。
+loader 提供 `SpadSample.denormalized_rates()` 方法。
 
 ```python
-# rates 字段等价于 "理想积分直方图"，在它上面 argmax 应接近数据集给的 est_range_bins_argmax
-sample_rates = sample._replace(spad=sample.rates.astype(np.float32))
-est_rates = argmax.estimate(sample_rates)
-# 期望 hit_rate 接近 32.3%，RMSE 接近数据集水平
+from research.sim_spad_loader import load_spad_mat
+sample = load_spad_mat(path)
+dense_rates = sample.denormalized_rates()    # (H,W,BINS) 反归一化期望直方图
+pred_bin = dense_rates.argmax(axis=2)        # 在无噪期望上 argmax
+# 实测 hit_rate@12mm = 100%, RMSE = 12mm（恰好 1 bin）
 ```
 
-**验收标准**：`hit_rate ≥ 30%` 则实现正确。
+**验收标准**：`hit_rate@200mm ≥ 99%`，RMSE ≤ 13 mm（约 1 bin）。
+入口：`python research/run_verify_baseline.py`
 
 ---
 

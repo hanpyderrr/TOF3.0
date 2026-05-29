@@ -1,12 +1,34 @@
-"""Stratified benchmark: compare algorithms across SBR levels.
+"""
+run_benchmark.py — 多 SBR 分层基准测试
 
-Scans the dataset, selects ~16 representative samples covering four SBR
-strata (very-low / low / medium / high), runs all algorithms, and prints a
-summary table.  One sample per (scene, SBR-stratum) pair ensures scene
-diversity.
+功能
+----
+扫描 ``datasets/`` 下所有 .mat，按 SBR 分四档（very_low / low / medium / high）
+各取若干代表样本（每场景至多 1 个），8 个算法跑一遍，打印对比表 + CSV。
 
-Usage:
-    python run_benchmark.py [--dataset datasets/] [--save]
+上游
+----
+- 命令行参数：``--dataset path``（默认 ``datasets``），``--save`` 写 CSV
+- ``sim_spad_loader.load_spad_mat``（含 ``_quick_sbr`` 只读 SBR 标量做分层）
+- ``algorithms/{argmax, bg_sub_argmax, lmf}``
+- ``eval.metrics.compute_all``
+
+下游
+----
+- 控制台对比表（行=样本，列=算法 hit@200mm）+ MEAN 行
+- ``--save`` 写 ``research/out/benchmark_results.csv``
+
+依赖
+----
+- scipy.io.loadmat（_quick_sbr 用 variable_names 加速）
+- numpy
+
+备注
+----
+- 分层默认：(very_low <0.10, 3) (low <0.50, 5) (medium <2.0, 5) (high ≥2.0, 3)
+- 每档最多 N 个、且场景去重——保证场景覆盖度
+- 不画图，只出表 + CSV；要图请用 ``run_sanity`` 或 ``run_accumulation``
+- 用于跑"修完 loader 后真正的传统算法天花板"
 """
 from __future__ import annotations
 

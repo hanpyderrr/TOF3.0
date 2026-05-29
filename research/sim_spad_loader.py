@@ -1,4 +1,40 @@
-"""Loader for Gutierrez-Barragan ICCV 2023 SimSPADDataset .mat samples."""
+"""
+sim_spad_loader.py — Gutierrez SimSPADDataset .mat 加载器
+
+功能
+----
+读取 Felipe Gutierrez-Barragan (ICCV 2023) 的 SimSPADDataset .mat 样本，
+把内部字段统一组装成 ``SpadSample`` 对象（``contracts`` 那套契约的输入端）。
+提供 ``bin_to_mm`` 转换工具，以及反归一化 rates 的方法。
+
+上游
+----
+- 物理数据：research/datasets/scene_group0/<scene>/spad_XXXX_p1.mat
+- MATLAB 数据集制作脚本（felipegb94 仓库 data_gener/）
+
+下游
+----
+- ``research/algorithms/*.py``：通过 ``SpadSample.hist`` 拿到 (H, W, BINS) 直方图
+- ``research/eval/viz.py``：从 ``SpadSample`` 取 intensity / depth_mm / hist 出图
+- ``research/run_*.py``：所有入口都靠这个 loader
+
+依赖
+----
+- scipy.io.loadmat 读 .mat
+- scipy.sparse 处理稀疏 spad（4096×1024 → 64×64×1024）
+- numpy
+
+备注
+----
+- **MATLAB column-major 陷阱**：``spad`` 字段是 ``sparse(reshape(detections, nr*nc, []))``，
+  反解时**必须用** ``reshape(side, side, BINS, order="F")``，否则像素行列被转置，
+  所有"在 spad 上"的算法结果都错乱（曾导致 argmax_spad 从 32% 假摔成 8.6%）。
+- ``rates`` 字段是**归一化的** [0,1]，要拿期望直方图必须用
+  ``SpadSample.denormalized_rates()``，按 ``rates_norm_params`` 反算。
+- ``bin`` 字段是 MATLAB 1-indexed bin 索引；本 loader 转 mm 时按原数字算
+  （结果差 1 个 bin / 12 mm，hit_rate 容差 200 mm 时可忽略，亚 bin 评估时要小心）。
+- ``start_stop="reverse"`` 仅供 PF32 工程化降级用，算法研究默认 ``"forward"``。
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -31,6 +67,9 @@ class SpadSample:
     est_argmax_bins: np.ndarray | None = None
     est_lmf_bins: np.ndarray | None = None
     est_zncc_bins: np.ndarray | None = None
+    rates: np.ndarray | None = None
+    rates_offset: np.ndarray | None = None
+    rates_scaling: np.ndarray | None = None
 
     def __post_init__(self) -> None:
         h, w, b = self.hist.shape
@@ -43,10 +82,36 @@ class SpadSample:
             "est_argmax_bins",
             "est_lmf_bins",
             "est_zncc_bins",
+            "rates_offset",
+            "rates_scaling",
         ):
             arr = getattr(self, name)
             if arr is not None:
                 assert arr.shape == (h, w), f"{name} shape {arr.shape} mismatch hist {(h, w)}"
+        if self.rates is not None:
+            assert self.rates.shape == (h, w, b), (
+                f"rates shape {self.rates.shape} mismatch hist {(h, w, b)}"
+            )
+
+    def denormalized_rates(self, formula: str = "scale_then_offset") -> np.ndarray | None:
+        """Reconstruct dense expected histogram from normalized rates + per-pixel params.
+
+        Two candidate formulas (the dataset readme does not pin one down; pick by
+        comparing argmax(rates) vs GT bin):
+          - "scale_then_offset": rates * scaling[..., None] + offset[..., None]
+          - "offset_then_scale": (rates + offset[..., None]) * scaling[..., None]
+        Returns None if any of rates / rates_offset / rates_scaling is missing.
+        """
+
+        if self.rates is None or self.rates_offset is None or self.rates_scaling is None:
+            return None
+        scaling = self.rates_scaling[..., None]
+        offset = self.rates_offset[..., None]
+        if formula == "scale_then_offset":
+            return self.rates * scaling + offset
+        if formula == "offset_then_scale":
+            return (self.rates + offset) * scaling
+        raise ValueError(f"unknown formula: {formula}")
 
 
 def bin_to_mm(
@@ -108,7 +173,10 @@ def _load_hist(raw_field: object) -> tuple[np.ndarray, int, int]:
         side = int(np.sqrt(dense.shape[0]))
         if side * side != dense.shape[0]:
             raise ValueError(f"sparse spad pixels are not square: {dense.shape[0]}")
-        return dense.reshape(side, side, BINS).astype(np.float32, copy=False), side, side
+        # MATLAB stored spad as `sparse(reshape(detections, nr*nc, []))` which is
+        # column-major: pixel (r, c) → row r + c*nr. numpy default C-order reshape
+        # would transpose the image; use order='F' to undo MATLAB's flatten.
+        return dense.reshape(side, side, BINS, order="F").astype(np.float32, copy=False), side, side
 
     arr = np.asarray(raw_field)
     if arr.ndim == 4 and arr.shape[0] == 1:
@@ -135,6 +203,42 @@ def _array2(raw: dict, name: str, shape: tuple[int, int], dtype) -> np.ndarray |
     if arr.shape != shape:
         raise ValueError(f"{name} shape {arr.shape} != hist spatial {shape}")
     return arr.astype(dtype, copy=False)
+
+
+def _load_rates(
+    raw: dict, nr: int, nc: int, start_stop: StartStop
+) -> np.ndarray | None:
+    if "rates" not in raw:
+        return None
+    arr = np.asarray(raw["rates"])
+    if arr.ndim == 4 and arr.shape[0] == 1:
+        arr = arr[0]
+    if arr.ndim != 3:
+        raise ValueError(f"unexpected rates shape: {arr.shape}")
+    if arr.shape == (BINS, nr, nc):
+        arr = np.transpose(arr, (1, 2, 0))
+    elif arr.shape != (nr, nc, BINS):
+        raise ValueError(f"unexpected rates shape: {arr.shape}")
+    rates = arr.astype(np.float32, copy=False)
+    if start_stop == "reverse":
+        rates = rates[:, :, ::-1].copy()
+    return rates
+
+
+def _load_rates_norm_params(
+    raw: dict, nr: int, nc: int
+) -> tuple[np.ndarray | None, np.ndarray | None]:
+    if "rates_norm_params" not in raw:
+        return None, None
+    params = raw["rates_norm_params"]
+    try:
+        offset = np.asarray(params["rates_offset"][0, 0]).squeeze()
+        scaling = np.asarray(params["rates_scaling"][0, 0]).squeeze()
+    except (KeyError, IndexError, ValueError):
+        return None, None
+    if offset.shape != (nr, nc) or scaling.shape != (nr, nc):
+        return None, None
+    return offset.astype(np.float32, copy=False), scaling.astype(np.float32, copy=False)
 
 
 def load_spad_mat(
@@ -171,6 +275,9 @@ def load_spad_mat(
     if depth_mm.shape != (nr, nc):
         raise ValueError(f"GT depth shape {depth_mm.shape} != hist spatial {(nr, nc)}")
 
+    rates = _load_rates(raw, nr, nc, start_stop)
+    rates_offset, rates_scaling = _load_rates_norm_params(raw, nr, nc)
+
     return SpadSample(
         hist=hist_hw_b,
         depth_mm=depth_mm,
@@ -184,6 +291,9 @@ def load_spad_mat(
         est_argmax_bins=_array2(raw, "est_range_bins_argmax", (nr, nc), np.uint16),
         est_lmf_bins=_array2(raw, "est_range_bins_lmf", (nr, nc), np.uint16),
         est_zncc_bins=_array2(raw, "est_range_bins_zncc", (nr, nc), np.uint16),
+        rates=rates,
+        rates_offset=rates_offset,
+        rates_scaling=rates_scaling,
     )
 
 

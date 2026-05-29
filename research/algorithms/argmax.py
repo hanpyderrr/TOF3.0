@@ -1,4 +1,35 @@
-"""Argmax baseline for SPAD histograms."""
+"""
+algorithms/argmax.py — 朴素峰值检测 baseline
+
+功能
+----
+对每像素 SPAD 直方图取 ``argmax(hist, axis=2)``，按 ``start_stop`` 方向
+把 bin 索引换算成毫米深度。零参数、O(B)。
+
+上游
+----
+- 输入：``sim_spad_loader.SpadSample``（hist 形状 (H, W, BINS)）
+- 配置：``ArgmaxConfig(min_counts=1.0)``——峰值低于该阈值的像素置为无效
+
+下游
+----
+- 返回 ``contracts.DepthEstimate``，algo_name=``"argmax_v0"``
+- 被 ``run_sanity / run_benchmark / run_accumulation / run_verify_baseline`` 调
+
+依赖
+----
+- numpy
+- ``sim_spad_loader.BINS`` 仅用于 reverse 方向的 bin 翻转
+
+备注
+----
+- 与 Gutierrez 数据集 ``est_range_bins_argmax`` **算法等价**；修好 loader 的
+  F-order bug 后，5 样本均值 hit@200mm 实测 0.579 ≈ ds_argmax 0.580。
+- 不做任何背景扣除——低 SBR 下被噪声峰带飞是预期行为；要改善去看
+  ``tail_bg_argmax`` / ``lmf`` / ``bg_sub_argmax``（空间池化）。
+- 输出 confidence = peak_val / max_peak（全图归一），不是绝对置信度，
+  仅供画图排序用。
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass

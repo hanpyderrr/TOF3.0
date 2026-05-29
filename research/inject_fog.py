@@ -1,20 +1,40 @@
 """
-inject_fog.py — 跨雾模型注入工具(算法测试阶段 2)
+inject_fog.py — 跨雾模型注入工具（算法测试阶段 2）
 
-对任意 SpadSample(forward 或 reverse start-stop)叠加可控雾散射回波,
-用于产出 (无雾 GT × 多雾模型 × 多档浓度) 矩阵,评估算法跨雾鲁棒性。
+功能
+----
+对任意 ``SpadSample``（forward 或 reverse start-stop）叠加可控雾散射回波，
+产出 (无雾 GT × 多雾模型 × 多档浓度) 矩阵，评估算法跨雾鲁棒性。
 
-雾模型(见 docs/algorithm_test_plan.md §2.1):
-    gamma       : β · r^(k-1) · exp(-α·r)            [训练用,文献 10 火箭军]
-    lognormal   : β · exp(-(ln r - μ)²/2σ²) / r       [测试用,留 TODO]
-    exponential : β · exp(-2α·r) / (r² + r₀²)         [测试用,留 TODO]
-    mie_lite    : Mie 近似 + 目标峰展宽/拖尾           [测试用,留 TODO]
+雾模型（见 docs/algorithm_test_plan.md §2.1）:
+    gamma       : β · r^(k-1) · exp(-α·r)             [训练用，文献 10 火箭军]
+    lognormal   : β · exp(-(ln r - μ)²/2σ²) / r       [测试用，留 TODO]
+    exponential : β · exp(-2α·r) / (r² + r₀²)         [测试用，留 TODO]
+    mie_lite    : Mie 近似 + 目标峰展宽/拖尾           [测试用，留 TODO]
 
-每模型三档 light / medium / dense,粗对应 Koschmieder 能见度 5m / 3m / 1m
-(σ_atm = 3.912 / visibility)。具体物理参数见 _FOG_PRESETS。
+每模型三档 light / medium / dense，粗对应 Koschmieder 能见度 5m / 3m / 1m
+（σ_atm = 3.912 / visibility）。具体物理参数见 _FOG_PRESETS。
 
-雾加性叠加在 hist 上(假设激光回波与雾后向散射通路独立),Poisson 采样可关闭。
-返回的 fog_meta dict 记录所有参数,评估时关联。
+上游
+----
+- 任意 ``sim_spad_loader.SpadSample``（含 hist / start_stop / mean_signal_photons）
+- 调用方传 ``model`` / ``level`` 选雾型、可注入 ``rng`` 复现
+
+下游
+----
+- 新 ``SpadSample``（hist 已叠加雾，sample_id 加后缀 ``__model_level``）
+- ``fog_meta`` dict（参数 + 总光子 + peak_bin）供评估关联
+
+依赖
+----
+- numpy
+- ``sim_spad_loader.BINS / BIN_MM / SpadSample / StartStop``
+
+备注
+----
+- 雾加性叠加在 hist 上（假设激光回波与雾后向散射通路独立），Poisson 可关
+- SBR 在叠加后失真，评估端要用 fog_meta 重算
+- 算法路线图 Step 6 的核心工具——尚未跑过 5 样本 × 3 雾档全表
 """
 from __future__ import annotations
 

@@ -1,3 +1,34 @@
+"""
+tests/test_phase_a.py — Phase A 回归测试
+
+功能
+----
+覆盖 Phase A 关键模块的最低契约：
+- loader：能从合成 .mat 读出 hist / depth_mm / intensity / est_* 字段
+- argmax：start_stop 方向、min_counts 阈值、confidence 归一
+- metrics：rmse / hit_rate / compute_all 数值正确
+
+上游
+----
+- 本机生成的临时合成 .mat（``research/out/test_tmp/``）
+- ``sim_spad_loader / algorithms.argmax / eval.metrics``
+
+下游
+----
+- ``python -m unittest discover research/tests`` CI 入口
+
+依赖
+----
+- scipy.io.savemat / scipy.sparse 写合成数据
+- numpy
+
+备注
+----
+- 不依赖真实 Gutierrez 数据集（不需要 6.4 GB 解压即可跑）
+- F-order reshape bug 修复后这些测试仍然通过——因为合成 .mat 的稀疏布局是
+  按行优先放进 sparse 的，与真实 MATLAB column-major 不冲突。**新加 spad
+  转置回归测试时要从 dense 3D 用 MATLAB column-major 顺序构造 sparse**。
+"""
 import sys
 import unittest
 from pathlib import Path
@@ -17,9 +48,12 @@ class PhaseATests(unittest.TestCase):
         from sim_spad_loader import load_spad_mat, bin_to_mm
 
         peak_bins = (np.arange(64 * 64, dtype=np.uint16) % 1024).reshape(64, 64)
+        # MATLAB stores spad as column-major: pixel (i, j) → row i + j*nr.
+        # Mirror that here so the loader's order="F" reshape recovers (i, j).
         rows = np.arange(64 * 64)
+        peak_bins_F = peak_bins.flatten(order="F")
         spad = sparse.coo_matrix(
-            (np.full(64 * 64, 3.0), (rows, peak_bins.ravel())),
+            (np.full(64 * 64, 3.0), (rows, peak_bins_F)),
             shape=(64 * 64, 1024),
         )
         intensity = np.arange(64 * 64, dtype=np.float64).reshape(64, 64)

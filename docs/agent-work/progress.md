@@ -1,6 +1,6 @@
 # 工作进度
 
-> 最后更新：2026-05-26
+> 最后更新：2026-05-28
 > 主控：Claude Opus 4.7
 
 ---
@@ -29,7 +29,8 @@
 | 板上联调（屏显/稳定性） | ✅ **已交叉编译部署，屏显实时深度图正常**；旧 v1.0 自启已禁用（开机三阶段消除）|
 | 哪吒开机自启（systemd） | ✅ `nezha/autostart/` tof-acquisition + tof-spi-syncer，重启验证；旧 v1.0 crontab 已禁 |
 | RK3568 开机自启 | ✅ S95/S96 已装并验证；旧 `S51mydisplay`/`S99myspireceive` 改名 `DISABLED.*` 真正禁用 |
-| ToF 雾分离算法原型 | ✅ `nezha/algorithm/` 仿真验证（中雾 4m：argmax 16%→分离 96%）；**独立原型，未接主链路** |
+| ToF 雾分离算法早期原型 | ✅ `research/tof_sim.py` + `research/tof_process.py` 仿真验证（中雾 4m：argmax 16%→分离 96%）；**PF32 reverse 路线，与当前 research/algorithms/ 主线分歧** |
+| 算法研究 Phase A（Gutierrez 64×64 forward 路线） | ✅ `research/` 主线：5 算法实测，argmax_spad 0.579≈ds_argmax 0.580；spatial_3x3 47.8% > lmf 37.5%（低 SBR 低光子） |
 
 ---
 
@@ -84,84 +85,34 @@
 
 ## 已完成工作记录
 
-### 2026-05-26 (深夜) — 架构 Q1–Q5 确认 + 阶段 1 计划定稿
+### 2026-05-26 (深夜) — 架构 Q1–Q5 + 阶段 1 计划定稿
 
-**背景：** 本次会话确认了 `docs/algorithm_code_architecture.md` 中五个设计待确认项，并调整了算法研究的起点。
+**Q1–Q5 决策**（仍有效）：
+- Q1 接口：传统函数式 `estimate(sample, cfg) → DepthEstimate`；ML 类式 `Estimator` ABC
+- Q2 `tof_process.py` v1：留原地不动；阶段 2 加 adapter 包一层
+- Q3 ML 路线：算法态 PyTorch 在算法目录，收敛后搬 `ml_offline/`
+- Q4 `runs/` 目录全 `.gitignore`；Q5 配置阶段 1 dataclass，阶段 2 再 YAML
 
-**Q1–Q5 确认结果：**
-- Q1 接口形态：传统算法用**函数式** `estimate(sample, cfg) → DepthEstimate`；ML 用**类式** `Estimator` ABC
-- Q2 `tof_process.py` v1：阶段 1 留原地不动；阶段 2 加 adapter 包一层，v1 本身不改
-- Q3 ML 路线：算法研究态 PyTorch 放 `nezha/algorithm/algorithms/ml/`；收敛后搬 `ml_offline/` 做工程化降级
-- Q4 `runs/` 目录：全 `.gitignore`（复现靠重跑）
-- Q5 配置形态：阶段 1 用 per-algo dataclass；阶段 2 批量实验时再引入 YAML
+**方向调整**：先做峰值检测到目标，再加雾——理由是先打通 loader/bin/换算。
 
-**方向调整：**
-- 用户决定**先不做雾，先做峰值检测到目标作为第一步**
-- 理由：峰值检测失败说明 loader/bin 方向/深度换算有 bug，不是算法问题；打通后加雾才有对比基准
-- 起点改为在 `tof_sim.py`（已有合成数据生成器）上跑通管道，不需要先下载 6.1G Gutierrez 数据
-
-**阶段 1a 计划（下次开始实施）：**
-```
-nezha/algorithm/
-├── contracts.py              新建：DepthEstimate / AlgoConfig dataclass
-├── algorithms/
-│   ├── __init__.py           新建（空）
-│   └── argmax.py             新建：包 tof_process.depth_argmax，输出 DepthEstimate
-└── eval/
-    ├── __init__.py           新建（空）
-    ├── metrics.py            新建：RMSE / hit_rate 计算
-    └── sanity.py             新建：入口脚本，用 tof_sim 生成合成数据跑 argmax
-```
-通过条件：RMSE < 10mm，hit_rate > 99%（合成数据无噪声/无雾，标准严）
-
-**未做（等下次）：**
-- 上述 4 个文件的实际编写
+> ⚠️ **路径已迁移**：原计划放 `nezha/algorithm/`，后于 05-27/28 整体迁到 `research/`。
+> 引文里出现的 `nezha/algorithm/...` 路径请按 `research/...` 理解。
 
 ---
 
-### 2026-05-26 (晚) — 算法研究态启动:Gutierrez 数据拉取 + loader/inject_fog + 代码架构规划
+### 2026-05-26 (晚) — 算法研究态启动：Gutierrez 数据 + loader/inject_fog 第一版
 
-**背景:** 用户调整方向——**先研究算法,再考虑 PF32 工程化对接**。不为 32×32/反向 start-stop/INT8 等工程约束让步,在公开数据上把"目标—雾分离"研究到收敛,再降级到 PF32。`ml_offline/` 那套工程化文档/policy 推迟到算法收敛后。
+**方向**：先研究算法（公开数据 64×64 forward），后降级 PF32；ml_offline 工程化推迟到算法收敛后。
 
-**做了:**
+**做了**：
+- 新增 `docs/algorithm_test_plan.md`、`docs/algorithm_code_architecture.md`
+- 拉取 Gutierrez SimSPADDataset_min 到本地（PSF 47K + scene_group0.zip 6.1G，未解压，走 Clash 7890）
+- 写 `sim_spad_loader.py`（SpadSample 契约，64×64 forward 默认）与 `inject_fog.py`（Gamma 模型三档雾）
+- `inject_fog.py` smoke test 通过
 
-- 新增 `docs/algorithm_test_plan.md` — 四阶段路径(基线管道→雾注入对比→跨数据集泛化→真雾 hold-out),数据源/雾模型/算法版本/通过条件全表
-- 新增 `docs/algorithm_code_architecture.md` — `nezha/algorithm/` 分层(契约/数据/预处理/算法/评估/入口)、文件清单分阶段、5 个待确认设计问题
-- 拉取 Gutierrez-Barragan ICCV 2023 SimSPADDataset_min 到 `nezha/algorithm/datasets/`(`.gitignore`,~6.1G):
-  - `Copy of PSF_used_for_simulation_nr-64_nc-64.mat`(47K)
-  - `Copy of scene_group0.zip`(6.1G,未解压)
-  - 走 Clash 7890 + gdown,实际耗时 11 分钟(早期 700KB/s 节流,后期飙到 14MB/s)
-- 写 `nezha/algorithm/sim_spad_loader.py`(算法研究态契约):
-  - 输出 `SpadSample` dataclass(hist + depth_mm + start_stop)
-  - **维持 Gutierrez 原始 64×64**(不为 PF32 32×32 让步)
-  - `start_stop='forward'` **默认**(bin 越大越远,与 Gutierrez/Lindell 同向);`reverse` 留给工程化降级
-  - 提供 `bin_to_mm()` / `iter_dataset()` / `sanity_check()`
-- 写 `nezha/algorithm/inject_fog.py`(plan §2.1 雾注入):
-  - **Gamma 模型**实现(`β · r^(k-1) · exp(-α·r)`,文献 10 火箭军);lognormal/exponential/mie_lite 接口预留
-  - 三档 `light` / `medium` / `dense`,对应 Koschmieder 能见度 5m / 3m / 1m(α=7.8e-4 / 1.3e-3 / 3.9e-3 /mm)
-  - Poisson 采样可关闭,fog_meta dict 记录所有参数(alpha/beta/k/peak_bin/total_fog_photons)
-  - **smoke test 通过**:假数据 1000 信号光子注雾后 hist 总和符合 (信号 + β_rel × 信号) 期望,peak_bin 随雾浓度前移符合物理
-- `.gitignore` 加 `nezha/algorithm/datasets/` + `*.mat`(公开数据集本地缓存,不入库)
-
-**未做(等用户确认架构 Q1-Q5 再落):**
-
-1. `contracts.py`(`DepthEstimate` / `AlgoConfig` 公共契约)
-2. `algorithms/argmax.py`(v0 baseline 新接口)
-3. `eval/{metrics, sanity}.py`(无雾 sanity 入口)
-4. 解压 scene_group0.zip + 跑真实 Gutierrez sample 的 sanity_check(数据已在本地,等架构定型一起跑)
-
-**验证:**
-
-- `inject_fog.py` smoke test 通过(假数据 forward 方向,Gamma 三档数值/peak_bin 物理合理)
-- `sim_spad_loader.py` 语法通过(被 inject_fog import 时执行,无 import 错)
-- **无雾真实数据 sanity 尚未跑**(等架构 Q1-Q5 + zip 解压)
-
-**待用户确认(阻塞落代码):** 见 `docs/algorithm_code_architecture.md §5`
-- Q1 算法接口函数 vs 类
-- Q2 现有 `tof_process.py` v1 处理方式(留 / 改 / 包 adapter)
-- Q3 ML 路线进 `nezha/algorithm/algorithms/ml/` 还是 `ml_offline/`
-- Q4 `runs/` 目录是否全 .gitignore
-- Q5 配置形态(per-algo dataclass vs YAML)
+> ⚠️ **路径已迁移**：代码原放 `nezha/algorithm/`，后整体迁到 `research/`。
+> `docs/algorithm_code_architecture.md` 里 `nezha/algorithm/` 路径已陈旧，
+> 实际代码在 `research/`，参见 `docs/research_code_style.md`。
 
 ### 2026-05-26 — 离线训练 + 边缘推理架构落地:ml_offline/ 骨架 + schema + policy
 
@@ -293,25 +244,15 @@ nezha/algorithm/
 
 **遗留：** I2 黑屏更深层排查（窗口 map/几何/重绘/wayland buffer，候选见 plan §9.6.3）；I1 USB reset 内置自动化；S95/S96 自启与旧自启切换
 
-### 2026-05-20 — I2 黑屏根治 + autostart 修复 + e2e 脚本
+### 2026-05-20 — 屏显黑屏多轮排查（中间状态，05-21 收口）
 
-**用户要求：** 按解耦思路排查 I2 黑屏，先确认显示层，再接数据层
-
-**做了：**
-- **I2 黑屏已根治** ✅：手动起 weston → 写合法 TofFrame 合成帧 `/tmp/received.dat`（base64 串口传入） → 起 qt_display；用户目视 **红/蓝渐变热图** 正常显示。根因=weston 没有随 qt_display 一起重启（wayland-0 是僵尸 socket），而不是渲染逻辑问题
-- 诊断过程：qt.qpa.wayland 日志确认 Qt 已连上 weston 并持续 flush 1920×1080 buffer（`handleUpdate` 可见），`libQt5WaylandClient.so` 已 map，`/dev/dri/card0` + `/dev/mali0` 均已打开
-- **S95tof_spi_receiver** 新增 USB adapter reset（unbind 2-1 / bind 2-1）
-- **S96tof_display** 新增 `wait_for_weston()` 循环（等 wayland-0 socket 最多 10s），防止 qt_display 在 weston 就绪前启动
-- **deploy/e2e_test.py** 新建：SSH 哪吒 + 串口 RK3568；检查 spidev1.0、启 sim_pf32 + spi_syncer、USB reset + spi_receiver、轮询 received.dat mtime；支持 `--display-only` / `--no-spi` 选项
-- 哪吒 IP 确认：192.168.31.127（wlo1 wireless，DHCP；当前 SSH 正常）
-
-**验证：** 用户目视红/蓝渐变热图 ✅；autostart 修改已写入源码未部署到板上
-
-**遗留：**
-1. 哪吒 `/dev/spidev1.0` 仍不存在（SSH 超时未完成诊断，需下次运行 `deploy/setup_spidev.sh` 确认原因）
-2. `deploy/e2e_test.py` 未实测（spidev 未通则 SPI 链路测试会 skip）
-3. 新 autostart 脚本（S95/S96）未部署到 RK3568 的 `/etc/init.d/`（需 serial 传入并 chmod +x）
-4. `S51mydisplay`（旧）还在，需要禁用或替换
+> 多次试错日，最终结论看 2026-05-21 屏显部署修复条目。本日主要中间动作：
+> - I2 黑屏定位为 weston/qt_display 时序（不是渲染逻辑）；手动启动 weston + 合成帧目视红/蓝渐变热图 OK
+> - Qt 源码改 FramelessWindowHint + 延迟 showFullScreen()；移除 QMainWindow 全局黑底 stylesheet；depthWidget 加 WA_OpaquePaintEvent
+> - autostart S95 加 `rmmod cdc_acm` 防 USB-SPI 适配器被抢占；S96 加 `wait_for_weston` socket 等待
+> - 新增 `deploy/setup_spidev.sh`、`deploy/spi_e2e_test.py`、`deploy/e2e_test.py`
+> - 哪吒 SSH 间歇不通（22/24/2222 等），多次只能走串口部署
+> - qt_display 起 wayland 失败回退 linuxfb，屏幕仍闪黑——根因次日才确认
 
 ### 2026-05-19 — 联调连通 + 架构锁定 + 全项目文档重写
 
@@ -442,147 +383,64 @@ nezha/algorithm/
 
 ## 下一步工作计划
 
-### 优先级排序（本阶段：打通实时深度显示链路）
+### 本阶段（已完成或在跑）
 
-| 优先级 | 任务 | 在哪做 | 依赖 |
-|--------|------|--------|------|
-| 🔴 | 补缺口：拷 `libUSB2UARTSPIIIC.so`(aarch64/x86_64)+头文件 入 `rk3568/spi_receiver/deps/` 与 `rk3568/legacy/lib/`（板上 /lib 已有可取） | 本地 | 无 |
-| 🔴 | 定二进制深度帧协议细节（MAGIC/CMD0x10/CRC32，开放项 O4） | 本地 | 无 |
-| 🔴 | 哪吒 SpiSyncer：算法出帧 → 低延迟推 `/dev/spidev1.0`（需 root） | 哪吒 | 协议定 |
-| 🔴 | RK3568 spi_receiver：传输层照搬 0411.c + 二进制深度帧解析 → 交叉编译 | SDK 机 | 缺口+协议 |
-| 🔴 | RK3568 Qt 显示程序：消费 TofFrame → MIPI 屏渲染 → 交叉编译 | SDK 机 | spi_receiver |
-| 🟡 | 实时链路联调（哪吒发→RK 收→MIPI 屏显） | 两机 | 上述 |
-| 🟡 | motor_controller（Python 串口下发） | 板上 | 开放项 O2（节点待定） |
-| 🟡 | autostart（spi_receiver + Qt 显示） | 板上 | 上述实现 |
-| ⏸️ | 【暂缓】5G 阶段：net_manager + cloud_syncer 接真实云 + 哪吒批量上行 + TCSPC 端点 | — | 系统稳定后 |
-| 🟢 | P9 物理算法层 / P10 ML 训练 | 哪吒/云 | 真实数据 |
+| 状态 | 任务 |
+|------|------|
+| ✅ | 实时显示链路 哪吒 SpiSyncer → SPI → RK3568 spi_receiver → Qt MIPI 屏显（已端到端实测通过，21 号收口） |
+| ✅ | 双机开机自启 systemd + S95/S96，旧 v1.0 已禁用 |
+| ⏸️ | 5G 阶段：net_manager + cloud_syncer 接真实云 + 哪吒批量上行 + TCSPC 端点（cloud_syncer 已实现+e2e，保留不动） |
+| 🟡 | motor_controller（RK3568 串口下发 STM32），开放项 O2 节点待定 |
 
-> 详细实施顺序见 `docs/rk3568_framework.md` §8。
+### 算法研究主线（research/，Phase A）
 
-### RK3568 SpiReceiver 开发方案
-
-> 方案已定稿，详见 `docs/rk3568_framework.md` §3.1 / §8。要点：
-> RK3568 是 **aarch64**，已编译的 `spi_rev_slavemyloop` 与 `libUSB2UARTSPIIIC.so` 均为 aarch64。
-> 因需在传输层（OpenUsb/ConfigSPIParamSlave/SPISlaveRcvData）之上新增二进制组帧，
-> 须在 SDK 机用 `aarch64-linux-gnu-gcc` 链接 aarch64 `libUSB2UARTSPIIIC.so` 交叉编译，
-> 产物经串口 base64 传到板上。**不可纯 Python**（须链接厂商 .so）。
-
-### 串口传输文件方法（无网络时）
-
-```bash
-# 在开发机：base64 编码
-base64 binary_file > binary_file.b64
-
-# 在串口 shell 中：
-base64 -d binary_file.b64 > binary_file
-chmod +x binary_file
-```
+| 状态 | 任务 |
+|------|------|
+| ✅ | Phase A baseline：5 算法实测，loader F-order bug 已修，verify_baseline.md 沉淀 |
+| ✅ | research/ 中文五段式头注释 + `docs/research_code_style.md` 规范沉淀 |
+| 🟡 | `lmf.py` 换数据集自带真 IRF（`research/datasets/PSF_64x64.mat`）替代 Gaussian 近似 |
+| 🟡 | 接入 `tail_bg_argmax` 到 run_sanity，跑 5 样本均值 |
+| 🟡 | `run_verify_baseline.py` 加 `lmf_spad` / `spatial_3x3` 列 |
+| 🟢 | Phase B：雾注入对比、ML 训练（按 `algorithm_research_roadmap.md`） |
 
 ---
 
-## 待确认事项
+## 待确认事项（未解决）
 
 | 问题 | 状态 |
 |------|------|
-| 哪吒↔RK3568 SPI 物理链路 | ✅ 实测逐字节通（USB转SPI 适配器 0483:5740） |
-| SIM 卡 / 5G | ✅ 已插，冷启动注册联网；本阶段暂缓接入 |
-| 二进制深度帧协议细节（MAGIC/CMD0x10/CRC32、是否用 INT 线、丢帧策略） | 🔴 开放项 O4，本阶段需先定 |
-| STM32 接 RK3568 哪个 /dev 节点 | 🔴 开放项 O2，待用户确认接线 |
-| spi_receiver 与 Qt 显示进程模型（合一/拆分） | 🟡 开放项 O6，实现时定 |
-| 电机闭环控制通道（开放项 O1） | 🟡 当前默认 RK3568 本地/手动 |
-| aarch64 交叉编译器（aarch64-linux-gnu-gcc）版本 | ⬜ 待确认（本机 rk3568_linux_sdk 内 Linaro 6.3.1 应匹配） |
+| STM32 接 RK3568 哪个 /dev 节点 | 🔴 开放项 O2，待硬件接线 |
+| 电机闭环控制通道 | 🟡 开放项 O1，当前默认本地手动 |
+
+> 已解决的（SPI 物理链路、5G 注册、二进制协议、SpiReceiver 进程模型、交叉编译器版本）见
+> 上方"当前状态快照"或 `docs/rk3568_framework.md`。
 
 ---
 
-## 文件变更追踪
+## 文件变更追踪（仅未完结/待办）
 
-| 文件 | 最近变更 | 状态 |
-|------|---------|------|
-| `nezha/qt_app/mainwindow.cpp` | Record 面板 UI | ✅ 已部署 |
-| `nezha/qt_app/cloudsyncer.cpp` | SQLite 队列实现 | ✅ 已部署 |
-| `cloud/server/main.py` | FastAPI 4 端点 | ✅ 运行中 |
-| `ARCHITECTURE.md` | 按 3.0 双机架构重写 | ✅ |
-| `CLAUDE.md` | 路径/架构全面更新 | ✅ |
-| `AGENTS.md` | 更新为 TOF3.0 内容 | ✅ |
-| `deploy/*.py` | 路径更新 TOF2.0→TOF3.0 | ✅ |
-| `docs/rk3568_connection.md` | 补 Linux 连接(termios) + readline 自动化限制 | ✅ |
-| `docs/rk3568_framework.md` | 新增 RK3568 权威框架文档 | ✅ 2026-05-19 |
-| `rk3568/README.md` + 各模块 README | 目录骨架与模块设计 | ✅ 2026-05-19 |
-| `CLAUDE.md` / `ARCHITECTURE.md` | 修正 SPI/电机架构矛盾 + 框架指引 | ✅ 2026-05-19 |
-| `docs/rk3568_reintegration_architecture.md` | 加"已被推翻/留档"横幅 | ✅ 2026-05-19 |
-| `nezha/qt_app/motoruart.cpp` | 修协议 bug（校验和 + 齿轮 cmdHi） | ✅ 2026-05-19 待哪吒编译验证 |
-| `cloud/server/main.py` | 加 POST /api/frames/tcspc | ⬜ P9-1 |
-| `rk3568/spi_receiver/spi_receiver.c` | 传输层 + 二进制组帧实现 | ⬜ 下一步 |
-| `rk3568/spi_receiver/deps/` | 拷入 .h + aarch64/x86_64 .so | ⬜ 缺口 |
-| `rk3568/cloud_syncer/*.py` | 深度上传实现（7 模块 + tests） | ✅ 2026-05-19 离线 e2e 通过 |
-| `rk3568/cloud_syncer/` 全部 | 已实现+e2e；归暂缓阶段保留不动 | ⏸️ 暂缓 |
-| `docs/cloud_syncer_plan.md` | 代码计划 + 决策 | ✅ 2026-05-19 |
-| `rk3568/motor_controller/motor_ctl.py` | 串口下发电机指令 | ⬜ 待 O2 |
-| `ARCHITECTURE.md` / `CLAUDE.md` / `docs/rk3568_framework.md` | 按锁定决策重写（实时显示/实时流/raw 本地/5G 暂缓） | ✅ 2026-05-19 |
-| `rk3568/README.md` + spi_receiver/cloud_syncer/motor/autostart README | 同步锁定决策 | ✅ 2026-05-19 |
-| `docs/登录方式.md` / `docs/spi硬件接口.md` | 新增（两机登录 + SPI 硬件接口+实测） | ✅ 2026-05-19 |
-| `docs/rk3568_reintegration_architecture.md` | 横幅补新推翻项 | ✅ 2026-05-19 |
-| `nezha/spi_syncer/` (spi_syncer.c+Makefile+README) | 实时深度发送端，移植 spisendTOF+seq 去重 | ✅ 2026-05-19 x86_64 编译+联调过 |
-| `rk3568/spi_receiver/` (spi_receiver.c+Makefile+deps+README) | SPI slave→/tmp/received.dat，SIGHUP-ignore | ✅ 2026-05-19 aarch64 交叉+联调过 |
-| `rk3568/qt_display/` (main/mainwindow/depthParser/depthWidget+.pro) | Qt MIPI 显示，wayland 客户端 | ✅ 编译+部署；⚠️ 屏显黑屏未解(plan §9.6) |
-| `rk3568/autostart/S95tof_spi_receiver`+`S96tof_display` | BusyBox init.d 自启（未安装） | ✅ 已写，未装 |
-| `.gitignore` | 补新目录二进制/qmake 生成 Makefile·moc·.qmake.stash | ✅ 2026-05-19 |
-| `nezha/qt_app/cloudsyncer.*` | 维持本地开发用，不改 | — |
+| 文件 | 状态 |
+|------|------|
+| `rk3568/motor_controller/motor_ctl.py` | ⬜ 待开放项 O2 接线确认 |
+| `rk3568/cloud_syncer/` 全部 | ⏸️ 已实现+e2e，归暂缓阶段保留不动 |
+| `cloud/server/main.py` POST /api/frames/tcspc | ⏸️ 5G 阶段再加 |
+| `research/algorithms/lmf.py` | 🟡 换真 IRF 替代 Gaussian 近似 |
+| `research/algorithms/tail_bg_argmax.py` | 🟡 接入 run_sanity，跑 5 样本均值 |
+| `research/run_verify_baseline.py` | 🟡 加 `lmf_spad` / `spatial_3x3` 列 |
 
-### 2026-05-20 — Qt 源码修复（fullscreen + 渲染）+ 交叉编译准备
+> 已完成的实时显示链路 / 自启 / SPI 协议 / 文档重写等文件，状态见上方"当前状态快照"，
+> 不再在此重复列出。
 
-**用户要求：** 分析黑屏+非全屏+颠倒原因，Codex 给出代码修复
+<!-- 2026-05-20 屏显排查、spidev 诊断、现网联调三条已并入上面"05-20 屏显黑屏多轮排查"
+     和文件变更追踪表，避免重复。所有结论在 2026-05-21 屏显部署修复中收口。 -->
+### 2026-05-27 — Phase A 算法研究流水线落地
 
-**做了：**
-- 确认板上 binary 为 aarch64 ELF（`file` 命令串口验证），正点原子 gnueabihf 工具链不兼容，需在有 SDK 的 Linux 机器交叉编译
-- **rk3568/qt_display/main.cpp**：新增 `Qt::FramelessWindowHint`，通过 `QTimer::singleShot(0,...)` 延迟 `showFullScreen()`，解决 Wayland compositor 未处理 fullscreen 请求的时序问题（xdg_toplevel configure 返回 WindowNoState）
-- **rk3568/qt_display/mainwindow.cpp**：移除 `setStyleSheet("background:#000;")` QMainWindow 全局 stylesheet（Wayland/EGL 下会级联覆盖子 widget 绘制），改为 central widget palette 黑底
-- **rk3568/qt_display/depthWidget.cpp**：构造函数增加 `setAutoFillBackground(false)`、`WA_OpaquePaintEvent`、`WA_NoSystemBackground`，声明 widget 为自绘不透明
-- **rk3568/autostart/S95tof_spi_receiver**：`usb_adapter_reset()` 头部加 `rmmod cdc_acm 2>/dev/null || true`，防止内核 cdc_acm 驱动抢占 USB adapter（0483:5740）导致 libusb OpenUsb=-1
-- 确认 weston.ini `transform=rotate-90` 可能需改 `rotate-270` 解决颠倒（待交叉编译部署后板上验证）
-- 新增 `docs/cross_compile_qt_display.md`：SDK 机交叉编译 + 串口部署 + weston.ini transform 调试完整步骤
+Codex worker 在原 `nezha/algorithm/`（后迁 `research/`）完成：
+- `sim_spad_loader.py` 支持 sparse `spad`、raw `bin` GT、`bin_size_ps`、intensity、数据集自带估计字段
+- 加 `contracts.py`、`argmax` baseline、`eval/metrics.py`、`eval/viz.py`、`run_sanity.py`
+- `tests/test_phase_a.py` 回归测试通过；`out/`/`datasets/`/`runs/` 入 `.gitignore`
 
-**状态：** 源码修改已入库，**尚未交叉编译部署**。需在有 aarch64 SDK 的 Linux 机器 `git pull` + `qmake` + `make` + 串口传板。
-
-**验证方式：** 见 `docs/cross_compile_qt_display.md`
-
-**遗留：**
-1. 交叉编译并部署新 qt_display binary 到 RK3568 `/myApp/tof3/qt_display/qt_display`
-2. 验证 fullscreen configure（串口看 weston 日志不再出现 WindowNoState）
-3. 验证蓝底绿块 fallback 上屏（无帧时应可见）
-4. 测试 weston.ini transform `rotate-270` 是否修正颠倒
-5. 哪吒 spidev1.0 仍待诊断（SSH 超时）
-
-### 2026-05-20 - spidev 诊断、RK3568 黑屏日志增强、SPI e2e 脚本
-
-- 新增 `deploy/setup_spidev.sh`：哪吒本机执行，诊断 ACPI/LPSS/SPI 控制器，尝试 `modprobe spidev`，枚举 `/dev/spidev*`，缺节点时通过 sysfs 创建/绑定。
-- 修改 `rk3568/qt_display/main.cpp`：启动时打印 frame path、QPA platform、screen geometry，并改为 `showFullScreen()`。
-- 修改 `rk3568/qt_display/mainwindow.cpp`：轮询 `received.dat` 时打印读失败、重复 seq、新帧 seq/valid 日志。
-- 修改 `rk3568/qt_display/depthWidget.cpp`：`paintEvent` 周期性打印日志；未收到深度帧前绘制蓝底绿块 fallback，用于确认窗口实际上屏。
-- 新增 `deploy/spi_e2e_test.py`：SSH 哪吒启动 `sim_pf32` 和 `spi_syncer`；串口 RK3568 做 USB-SPI reset、启动 `spi_receiver`，可选启动 `qt_display`，轮询 `/tmp/received.dat` 并校验 magic/version/尺寸/validCount/depth range/CRC16。
-- 本地验证：`python -m py_compile deploy/spi_e2e_test.py` 通过。当前 sandbox 无 `qmake`/`bash`，Qt 交叉构建、shell `bash -n`、真实硬件链路未在本机执行。
-
-### 2026-05-20 - RK3568 现网联调结果
-
-- 哪吒侧：`192.168.31.127` 可 ping，但 `22/24/2222/2200/8022` 都不通，当前这台开发机无法直接 SSH 上去执行 `spidev` / `spi_syncer`。
-- RK3568 侧：`COM7 @ 1500000 8N1` 可连通，板上返回 `Linux ATK-DLRK3568 4.19.232 aarch64`，串口链路正常。
-- USB-SPI 适配器：板上可见 `0483:5740`，执行 USB unbind/bind 后枚举出 `2-1`，`spi_receiver` 进程可启动。
-- 显示进程：`qt_display` 已启动，先后尝试 `wayland` 和 `linuxfb`，`wayland` 因 `wl_display` 不存在失败，`linuxfb` 可以起来。
-- 当前屏幕表现：用户现场看到的是“闪烁黑屏 + 没有数据的窗口”；从日志侧看，`qt_display` 进程在跑，但还没有确认到有效深度帧刷新到屏幕上。
-- 当前文件状态：`/tmp/received.dat` 目前未由哪吒端持续刷新，`spi_receiver` 只看到 `nohup: ignoring input`，说明接收端进程在但上游数据链路还没打通。
-### 2026-05-27 - Phase A Algorithm Research Pipeline
-
-Delegated Codex worker task completed in `nezha/algorithm/`:
-- Fixed `sim_spad_loader.py` for sparse `spad` matrices, raw `bin` GT, per-sample `bin_size_ps`, intensity, and dataset-provided estimate fields.
-- Added shared contracts, argmax baseline, metrics, sanity visualization, and `run_sanity.py` entrypoint.
-- Added local algorithm `.gitignore` for `out/`, `datasets/`, and `runs/`.
-- Added regression tests in `nezha/algorithm/tests/test_phase_a.py`.
-
-Verification:
-- `python -m unittest tests.test_phase_a` passed.
-- `python run_sanity.py datasets\scene_group0\dining_room_0022\spad_0011_p1.mat --save` generated `out\spad_0011_p1_sanity.png`.
-- Acceptance command was also run with `MPLBACKEND=Agg`; it printed RMSE/hit_rate without crashing. Agg backend warned that `plt.show()` is non-interactive.
-- `py_compile` could not write `__pycache__` due Windows sandbox permission; import verification with `python -B` passed.
-
-Note:
-- On sample `spad_0011_p1`, pure argmax prints RMSE about 2869.5 mm and hit_rate about 8.6%; dataset-provided argmax/LMF/ZNCC are also weak on this low-SBR sample, so this is a baseline limitation rather than a runtime failure.
+> ⚠️ **本日报告中的"argmax hit_rate ≈ 8.6% / RMSE ≈ 2869mm"已过时**：
+> 那是 loader F-order bug 时期的错误数字（行列被转置）。
+> 05-28 修复 `reshape(..., order="F")` 后，5 样本均值 hit@200mm = **0.579**
+> ≈ 数据集自带 `ds_argmax` 0.580。实测见 `research/out/verify_baseline.md`。

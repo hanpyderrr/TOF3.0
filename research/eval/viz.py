@@ -1,4 +1,37 @@
-"""Visualization helpers for SPAD algorithm sanity checks."""
+"""
+eval/viz.py — 算法 sanity 可视化（2×3 面板）
+
+功能
+----
+为一对 (sample, estimate, metrics) 画 2×3 诊断面板：
+  [intensity, GT depth,   Pred depth]
+  [histogram, abs error,  metrics text]
+
+上游
+----
+- ``sim_spad_loader.SpadSample``（提供 hist / depth_mm / intensity / SBR / sample_id）
+- ``contracts.DepthEstimate``（提供 depth_mm / algo_name）
+- ``eval.metrics.compute_all`` 出来的 metrics dict
+
+下游
+----
+- matplotlib Figure，由调用方 ``plt.show()`` 或 ``fig.savefig(...)``
+- 主要入口：``run_sanity.py --save`` 输出到 ``research/out/<sample>_<algo>.png``
+
+依赖
+----
+- matplotlib（延迟 import，方便无 GUI 环境）
+- numpy
+- ``sim_spad_loader.bin_to_mm`` / ``BINS``
+
+备注
+----
+- 中位深度像素自动选取作为示例像素（_select_pixel），用 ▽ 标记
+- GT/Pred 用顶部倒三角标位（绿/红），**不画 axvline**——避免遮挡 bar 顶光子数
+- 误差热图 vmax=500 mm 固定，方便不同样本对比；超过的像素颜色饱和
+- 直方图 ylim 留出 20% 顶部空间给三角标记
+- 仅做诊断可视，不存中间数据（要数据看 ``eval/metrics.compute_all``）
+"""
 from __future__ import annotations
 
 import numpy as np
@@ -67,15 +100,22 @@ def plot_sanity_panel(sample, estimate, metrics, pixel_yx=None, title=""):
     hist = sample.hist[y, x]
     bins_m = bin_to_mm(np.arange(BINS), sample.start_stop, sample.bin_size_ps) / 1000.0
     width = abs(float(bins_m[1] - bins_m[0])) if BINS > 1 else 0.001
-    ax.bar(bins_m, hist, width=width, color="#4f6f9f")
+    ax.bar(bins_m, hist, width=width, color="#4f6f9f", zorder=3)
     gt_m = gt[y, x] / 1000.0
     pred_m = pred[y, x] / 1000.0
-    ax.axvline(gt_m, color="green", linestyle="--", label=f"GT {gt_m:.2f}m")
-    ax.axvline(pred_m, color="red", linestyle="-", label=f"Pred {pred_m:.2f}m")
+    hmax = float(hist.max()) if hist.size and hist.max() > 0 else 1.0
+    ax.set_ylim(0, hmax * 1.20)
+    # arrow markers above the histogram pin GT/Pred without any vertical lines
+    ax.scatter([gt_m], [hmax * 1.10], marker="v", s=90, color="green",
+               edgecolors="black", linewidths=0.6, zorder=4,
+               label=f"GT {gt_m:.2f}m")
+    ax.scatter([pred_m], [hmax * 1.10], marker="v", s=90, color="red",
+               edgecolors="black", linewidths=0.6, zorder=4,
+               label=f"Pred {pred_m:.2f}m")
     ax.set_xlabel("Distance (m)")
     ax.set_ylabel("Counts")
     ax.set_title(f"Histogram ({y}, {x})")
-    ax.legend()
+    ax.legend(loc="upper right")
 
     ax = axes[1, 1]
     err = np.where(valid_gt, np.abs(pred - gt), np.nan)

@@ -1,4 +1,36 @@
-"""Argmax / spatial-argmax / dataset-ZNCC sanity comparison."""
+"""
+run_sanity.py — 单样本 × 多算法可视化入口
+
+功能
+----
+对一个 .mat 样本一次跑齐 8 个估计器（我们 5 个 + 数据集 3 个 baseline），
+打印 hit_rate / RMSE / valid_pred_ratio 表，并为每个算法画 2×3 sanity 面板。
+
+上游
+----
+- 命令行参数：``[mat_file]`` 默认取 datasets/ 下第一个 .mat
+- ``sim_spad_loader.load_spad_mat``
+- ``algorithms/{argmax, bg_sub_argmax, lmf}``
+- ``eval.metrics.compute_all`` + ``eval.viz.plot_sanity_panel``
+
+下游
+----
+- 控制台对比表
+- ``--save`` 时写 ``research/out/<sample_id>_<algo>.png`` 共 8 张
+
+依赖
+----
+- matplotlib（``--save`` 用 ``MPLBACKEND=Agg``）
+- numpy / scipy
+
+备注
+----
+- ``argmax_rates`` / ``lmf_rates`` 当前直接对 ``use_field="rates"`` 加载得到的
+  归一化 rates 跑，argmax 结果对（per-pixel 线性变换不改 argmax 位置），但 LMF 在
+  归一化值域上跑严格说应该用 ``SpadSample.denormalized_rates()`` 反归一化后再算。
+- ``tail_bg_argmax`` 暂未接入；Step 2 之后再加。
+- 默认 tol_mm = 200 mm，约 17 bin。
+"""
 from __future__ import annotations
 
 import argparse
