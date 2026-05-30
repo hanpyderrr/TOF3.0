@@ -1,5 +1,5 @@
 [Unit]
-Description=TOF3.0 acquisition (sim_pf32 -> /tmp/depth.dat)
+Description=TOF3.0 acquisition (ExampleTOF: real PF32 -> /tmp/depth.dat)
 Documentation=https://github.com/hanpyderrr/TOF3.0
 After=basic.target
 
@@ -7,8 +7,26 @@ After=basic.target
 Type=simple
 User=ding
 WorkingDirectory=/home/ding/tof3-rt/acquisition
-# 当前阶段用 sim_pf32 模拟器；接真实 PF32 后改为真实采集程序(ExampleTOF)的绝对路径
-ExecStart=/home/ding/tof3-rt/acquisition/sim_pf32
+
+# 启动前确保 PF32 SDK 运行所需符号链接到位（幂等；详见 deploy/setup_pf32_runtime.sh）：
+#   ~/Firmware -> SDK Firmware/    (SDK 默认从 ~/Firmware/ 找 PF32_USB3.bit)
+#   ~/tof3-rt/source -> SDK source/(libPF32_API.so NEEDED 的相对路径 ../source/...)
+ExecStartPre=/bin/sh /home/ding/tof3-rt/deploy/setup_pf32_runtime.sh
+
+# 真实 PF32 采集（基于 PF32 SDK 1.5.21，TCSPC sys_master 模式）；
+# 若需回退到模拟器：把下行注释，启用 sim_pf32 行即可。
+ExecStart=/home/ding/tof3-rt/acquisition/ExampleTOF
+#ExecStart=/home/ding/tof3-rt/acquisition/sim_pf32
+
+# 默认行为：关 raw .tch 落盘（2fps×2MB≈14GB/h，SD 容量保守）；0.5s/帧≈2fps。
+# 需要 raw 全量存档时手动 systemctl edit 这里改成 TOF_RAW_ENABLE=1。
+Environment=TOF_RAW_ENABLE=0
+Environment=TOF_INTEGRATION_S=0.5
+
+# ExampleTOF 全程 stderr 输出，stderr 默认无缓冲，journal 实时可见。
+StandardOutput=journal
+StandardError=journal
+
 Restart=always
 RestartSec=2
 

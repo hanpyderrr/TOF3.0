@@ -1,6 +1,6 @@
 # RK3568 连接方式与硬件现状
 
-> 记录时间：2026-05-18
+> 记录时间：2026-05-18，2026-05-30 补充自动化批处理可靠版
 > 状态：串口已通（Windows COM7 与 Linux `/dev/ttyUSB0` 均已实测连通），无网络
 
 ---
@@ -69,6 +69,7 @@ s.close()
 - **必须用单一持久 fd 收发**：不要用 `cat` 或反复 `open()` 的方式。每次打开 CH340 都会翻转 DTR/RTS，反复开关会干扰/复位 RK3568，典型表现是"第一次收到几十字节错乱、之后任何波特率都 0 字节"。
 - **`cflag` 必须清 `HUPCL`**：否则关闭端口时翻转 DTR，干扰下一次连接。
 - 速率用 `termios.B1500000`（Linux 标准常量 = 4106；CH340 时钟 12MHz/8 整除，**速率本身是精确的**，错乱不是波特率问题，而是上面的开关端口问题）。
+- **每条命令头会被吃 2–3 字节**（2026-05-30 实测）：板侧 prompt 重绘的转义序列（`\e7` save-cursor、`\e[6n` cursor-position-report 等）在我们发命令时与之同时占用 stdin，紧跟 newline 之后的头几个字节会被吞。典型现象：发 `hostname\n`，板上实际执行的是 `tname`，回 `sh: tname: command not found`。**绕过办法**：每条命令前加 **8 个空格 padding**，丢的全是无害空格，命令本体完整到达。配合下方"自动化批处理可靠版"使用。
 
 #### Python 连接示例（标准库 termios，无需 pyserial）
 
@@ -105,6 +106,65 @@ os.close(fd)                              # 仅在整个会话结束时关闭
 ```
 
 > 完整诊断脚本见 `/tmp/rkconn.py`（本机临时文件，未入库）。
+
+#### 自动化批处理可靠版（2026-05-30 实测，连发数十条命令稳定）
+
+在上面最小示例的基础上加三件事即可稳定批跑命令：
+
+1. **字节级慢写**：每字节 `sleep 3ms`（比"每 3 字节 6ms"更稳）。
+2. **8 空格前导 padding**：抵消 prompt 重绘抢走的首字节（见上节关键坑）。
+3. **唯一 marker 截取**：命令尾加 `; echo MK<rand>`，按 marker 切输出。
+
+会话开头先清掉终端污染（关 bracketed-paste、关 echo、简化 PS1、`TERM=dumb`），后续命令解析就不再被 ANSI 序列干扰。
+
+```python
+import os, time, select, termios, re, uuid
+
+ANSI = re.compile(r'\x1b\[[?]?[0-9;]*[a-zA-Z]|\x1b[78]')
+PAD = "        "   # 8 个空格 padding
+
+def slow_write(fd, s, per_byte_ms=3):
+    for ch in s.encode():
+        os.write(fd, bytes([ch]))
+        time.sleep(per_byte_ms / 1000)
+
+def run(fd, cmd, wait=1.0):
+    mk = "MK" + uuid.uuid4().hex[:8].upper()
+    termios.tcflush(fd, termios.TCIFLUSH)
+    slow_write(fd, f"{PAD}{cmd}; echo {mk}\n")
+    deadline = time.time() + wait + 3
+    buf = b''
+    while time.time() < deadline:
+        if select.select([fd], [], [], 0.2)[0]:
+            buf += os.read(fd, 8192)
+            if (mk + "\n").encode() in buf or (mk + "\r").encode() in buf:
+                break
+    txt = ANSI.sub('', buf.decode('utf-8', 'replace')).replace('\r', '')
+    if mk in txt:
+        txt = txt.split(mk, 1)[0]
+    lines = [l for l in txt.splitlines() if l.strip()]
+    if lines and cmd[:15] in lines[0]:   # 去命令回显行
+        lines = lines[1:]
+    return '\n'.join(lines).strip()
+
+# 会话开头清终端污染（每条之间留 0.3s 让板子吃完）
+for s in ["printf '\\e[?2004l'", "stty -echo",
+          "export PS1='# '", "export TERM=dumb"]:
+    slow_write(fd, PAD + s + "\n")
+    time.sleep(0.3)
+termios.tcflush(fd, termios.TCIOFLUSH)
+```
+
+用法：
+
+```python
+print(run(fd, "hostname"))                       # ATK-DLRK3568
+print(run(fd, "uname -srm"))                     # Linux 4.19.232 aarch64
+print(run(fd, "lsusb | head -8"))
+print(run(fd, "ls /myApp/tof3 || echo NO_TOF3"))
+```
+
+> 注意：长输出（>4KB）需要把 `wait` 调大，或在命令里改成 `head -N` 截断。
 
 ---
 

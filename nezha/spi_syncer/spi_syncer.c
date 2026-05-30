@@ -75,6 +75,12 @@ static int read_frame(const char *path, TofFrame *frame)
 
 int main(int argc, char **argv)
 {
+    /* systemd 把 stdout 重定向到 journal 时默认全缓冲，每 50 帧的统计行会积到
+     * 4KB buffer 满才一次性刷出（2fps 下要 ~30 分钟才能看到一次更新），观感上像
+     * 进程卡死。改成行缓冲，让每条 \n 结尾的日志立刻进 journal。 */
+    setvbuf(stdout, NULL, _IOLBF, 0);
+    setvbuf(stderr, NULL, _IOLBF, 0);
+
     const char *depth_file = (argc > 1) ? argv[1] : TOF_DEPTH_FILE;
     const char *spidev     = (argc > 2) ? argv[2] : DEFAULT_SPIDEV;
 
