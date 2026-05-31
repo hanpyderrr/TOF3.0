@@ -24,7 +24,7 @@ PF32 `getHistogram(pf32, buf, accumSeconds)` 输出 `uint16[noOfPixels × noOfTD
 ## 运行
 
 ```bash
-cd nezha/algorithm
+cd research
 python3 run_demo.py        # 需 numpy / scipy / matplotlib
 # 结果图在 out/： depth_compare.png  pixel_hist.png  sweep_distance.png
 ```
