@@ -30,7 +30,8 @@
 #include "../acquisition/depth_proto.h"
 
 #define DEFAULT_SPIDEV "/dev/spidev1.0"
-#define POLL_USEC      20000   /* 20ms 轮询；sim 500ms/帧，余量大，延迟低 */
+#define POLL_USEC      5000    /* 5ms 轮询；ExampleTOF 稳态 ~10fps（100ms/帧），
+                                * 把这里降下来主要削峰平均延迟（20ms→5ms 半窗等待）。 */
 
 static volatile sig_atomic_t g_run = 1;
 static void on_sig(int s) { (void)s; g_run = 0; }
