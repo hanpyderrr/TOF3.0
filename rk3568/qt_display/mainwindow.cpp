@@ -44,7 +44,9 @@ MainWindow::MainWindow(const QString &framePath, QWidget *parent)
 
     m_fpsT0 = QDateTime::currentMSecsSinceEpoch();
     m_timer = new QTimer(this);
-    m_timer->setInterval(50);
+    // 16ms ≈ 60Hz，匹配 MIPI 屏刷新；10fps 数据源下平均屏端延迟 25ms→8ms。
+    // 之前 50ms 是 sim_pf32 2fps 时代的余量，10fps 下成了新瓶颈。
+    m_timer->setInterval(16);
     connect(m_timer, &QTimer::timeout, this, &MainWindow::onTimer);
     m_timer->start();
     qInfo() << "qt_display: polling timer started, interval =" << m_timer->interval() << "ms";

@@ -1,0 +1,16 @@
+# /etc/udev/rules.d/99-usb-spi-autosuspend.rules
+#
+# 禁用 USB-SPI 适配器（0483:5740）的 USB autosuspend。
+#
+# 背景：长时间运行后内核 USB hub power management 会让适配器短暂 disconnect
+# 并重新枚举（device number 变化），libUSB2UARTSPIIIC 不能处理 device renumber，
+# spi_receiver 后续 OpenUsb=-1 死循环。屏冻在最后一帧。
+#
+# 部署：cp 到 /etc/udev/rules.d/ + udevadm control --reload-rules && udevadm trigger
+#
+# 验证：cat /sys/bus/usb/devices/2-1/power/control 应该是 on（不是 auto）
+
+# 注：用 ATTR 而非 ATTRS——idVendor/idProduct 在 device 节点（不是 interface），
+# 用 ATTRS 会被 interface 子节点匹配上，触发 ATTR{power/control} 写入失败
+# （interface 节点没有 power/control）报 "Permission denied"。
+SUBSYSTEM=="usb", ATTR{idVendor}=="0483", ATTR{idProduct}=="5740", ATTR{power/control}="on"

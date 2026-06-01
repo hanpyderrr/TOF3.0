@@ -107,6 +107,28 @@ os.close(fd)                              # 仅在整个会话结束时关闭
 
 > 完整诊断脚本见 `/tmp/rkconn.py`（本机临时文件，未入库）。
 
+#### ⚠️ Rockchip FIQ Debugger 会劫持 console（2026-06-01 踩坑）
+
+RK3568 BSP 默认编进了 **FIQ Debugger**（内核态硬件中断调试器），监听串口收到的特殊字符序列后**把 console 切到 `debug>` 提示符**，吃掉之后所有 shell 命令直到切回。
+
+**触发**：长时间高速串口流量（实测 ~8 个 1 KB chunk 后必现）。机理推测是 CH340 长流量累积的伪 break (BRK) 信号 被 FIQ Debugger 误判为触发。其他散发命令偶尔也会触发（连 `find /sys -name '*fiq*'` 这种无害命令都被命中过）。
+
+**症状**：
+- `printf '...' >> /tmp/file` 命令返回正常（marker echo 触发），但文件实际没写入
+- 后续任何命令前 prompt 是 `debug>`
+- `help` 显示「FIQ Debugger commands: pc/regs/bt/reboot/reset/kmsg/cpu/ps/sysrq/console …」
+
+**切回 console**：
+```
+debug> console      # 一句话切回，Linux userspace 命令恢复，文件系统状态不变
+```
+
+**对自动化的影响**：
+- **大文件传输不可靠**：每次断/续传后 console 会再被劫持，循环切回成本高。**>10 KB 文件请用网线 scp 或 U 盘 cp**，不走串口
+- 串口适合做：状态查询、改一行配置、启停 service、看日志 —— **不适合**：传二进制、连续高密度命令
+
+**永久关闭（未实测，需重启）**：boot args 加 `fiq_debugger.disable=1`，或重编内核去掉 `CONFIG_FIQ_DEBUGGER`。
+
 #### 自动化批处理可靠版（2026-05-30 实测，连发数十条命令稳定）
 
 在上面最小示例的基础上加三件事即可稳定批跑命令：

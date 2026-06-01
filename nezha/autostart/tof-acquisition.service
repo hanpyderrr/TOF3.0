@@ -18,10 +18,12 @@ ExecStartPre=/bin/sh /home/ding/tof3-rt/deploy/setup_pf32_runtime.sh
 ExecStart=/home/ding/tof3-rt/acquisition/ExampleTOF
 #ExecStart=/home/ding/tof3-rt/acquisition/sim_pf32
 
-# 默认行为：关 raw .tch 落盘（2fps×2MB≈14GB/h，SD 容量保守）；0.5s/帧≈2fps。
+# 默认行为：关 raw .tch 落盘（10fps×2MB≈70GB/h，SD 容量保守）。
 # 需要 raw 全量存档时手动 systemctl edit 这里改成 TOF_RAW_ENABLE=1。
 Environment=TOF_RAW_ENABLE=0
-Environment=TOF_INTEGRATION_S=0.5
+# 0.1s/帧 ≈ 10fps：人眼感知流畅 + PF32 5ns 激光下信号够亚 bin cm 精度；
+# 链路其他段位都在 5x 富余里。调试用 0.5s（2fps）可在 systemctl edit 临时改。
+Environment=TOF_INTEGRATION_S=0.1
 
 # ExampleTOF 全程 stderr 输出，stderr 默认无缓冲，journal 实时可见。
 StandardOutput=journal

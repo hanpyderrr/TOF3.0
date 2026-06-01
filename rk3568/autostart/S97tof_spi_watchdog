@@ -1,0 +1,65 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          tof_spi_watchdog
+# Required-Start:    $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: TOF3.0 SPI 链路 watchdog（监控 received.dat 停滞触发 S95 restart）
+### END INIT INFO
+# 部署位置：/etc/init.d/S97tof_spi_watchdog（chmod +x）
+# 启动顺序：S95 spi_receiver -> S96 display -> S97 watchdog（兜底，晚启）
+
+PATH="/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin"
+APP="/usr/bin/tof_spi_watchdog.sh"
+PID_FILE="/var/run/tof_spi_watchdog.pid"
+
+case "$1" in
+    start)
+        echo -n "Starting tof_spi_watchdog: "
+        if [ -f "$PID_FILE" ]; then
+            pid=$(cat "$PID_FILE")
+            if kill -0 "$pid" 2>/dev/null; then
+                echo "already running (PID $pid)"
+                exit 0
+            fi
+            rm -f "$PID_FILE"
+        fi
+        if [ ! -x "$APP" ]; then
+            echo "missing $APP"
+            exit 1
+        fi
+        nohup "$APP" >/dev/null 2>&1 &
+        echo $! > "$PID_FILE"
+        echo "done."
+        ;;
+    stop)
+        echo -n "Stopping tof_spi_watchdog: "
+        [ -f "$PID_FILE" ] && kill -TERM $(cat "$PID_FILE") 2>/dev/null
+        rm -f "$PID_FILE"
+        echo "done."
+        ;;
+    restart)
+        $0 stop
+        sleep 1
+        $0 start
+        ;;
+    status)
+        if [ -f "$PID_FILE" ]; then
+            pid=$(cat "$PID_FILE")
+            if kill -0 "$pid" 2>/dev/null; then
+                echo "Running (PID $pid)"
+            else
+                echo "Stale PID file"
+                rm -f "$PID_FILE"
+                exit 3
+            fi
+        else
+            echo "Not running"
+            exit 3
+        fi
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|status}"
+        exit 1
+        ;;
+esac

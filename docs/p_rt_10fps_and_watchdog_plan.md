@@ -113,20 +113,25 @@ USB 设备短暂 disconnect → reconnect 让 device number 变化，`libUSB2UAR
 | 2.2 | sftp 推 → sudo cp 到 `/etc/systemd/system/` → daemon-reload → restart tof-acquisition |
 | 2.3 | 验证：ExampleTOF journal seq 涨速 ~10/s；spi_syncer journal `last_seq` 跟上、`dropped=0` |
 
-### Phase 3 — qt_display setInterval 50→16（~20 min，最重）
+### Phase 3 — qt_display setInterval 50→16（⚠️ DEFERRED）
 
-RK3568 无网，唯一通道是串口（CH340 1.5 Mbaud 慢写）。
+**状态（2026-06-01）**：代码已改、本机交叉编译产物 ✅，但 **RK3568 串口部署受阻**，待用网线/U 盘部署。
+- ✅ `rk3568/qt_display/mainwindow.cpp:47` setInterval(50)→16 已 commit
+- ✅ 本机交叉编译 `qt_display` 58 KB aarch64 ELF（md5 `37bcf80b…`）
+- ❌ 串口传输：gzip+base64 24.7 KB → 25 chunks × 1000 B，每 ~8 chunks 后 **Rockchip FIQ Debugger 劫持 console**，传输被吞，多次重试只能稳定送达约 8 KB。详见 `docs/rk3568_connection.md` § FIQ Debugger 踩坑。
+- ⏸ 暂跳过：50 ms timer 在 10 fps 数据下仍有 2× 富余（上限 20 fps），不阻塞链路；只是屏端平均延迟多 ~9 ms。
+- 📋 后续：方便时 RK 临时插网线 scp 或 U 盘拷贝部署，一次 `cp + S96 restart` 完成。
 
-| 步骤 | 动作 | 难点 |
-|---|---|---|
-| 3.1 | 改 `rk3568/qt_display/mainwindow.cpp:47` setInterval(50) → 16 | 一行 |
-| 3.2 | 本机交叉编译：`$SDK/host/bin/qmake qt_display.pro && make -j4`，SDK=`~/rk3568_linux_sdk/buildroot/output/rockchip_rk3568` | 路径已确认 |
-| 3.3 | `file qt_display` 校验 = ELF 64-bit aarch64 | 防误用主机 GCC |
-| 3.4 | gzip + base64 编码 ELF（估缩到 ~80-150 KB） | 减少传输量 |
-| 3.5 | 切 1500B 块、串口慢写到 RK `/tmp/qt_display.b64.NNN`（用 padding + marker 套路） | 估 1.5-3 分钟传输 |
-| 3.6 | RK 端 `cat .b64.* \| base64 -d \| gunzip > /tmp/qt_display.new` + md5sum 与本机对比 | **必须校验**，否则装错版本死循环 |
-| 3.7 | md5 一致才 `cp /tmp/qt_display.new /myApp/tof3/qt_display/qt_display` + `/etc/init.d/S96tof_display restart` | 不一致就停 + 报告 |
-| 3.8 | 验证 qt_display log `read frame seq=` 涨速 ≈ 10/s | tail log |
+原计划步骤（保留供未来部署用）：
+
+| 步骤 | 动作 |
+|---|---|
+| 3.1 | 改 `rk3568/qt_display/mainwindow.cpp:47` setInterval(50) → 16 ✅ |
+| 3.2 | 本机交叉编译：`$SDK/host/bin/qmake qt_display.pro && make -j4`，SDK=`~/rk3568_linux_sdk/buildroot/output/rockchip_rk3568` ✅ |
+| 3.3 | `file qt_display` 校验 = ELF 64-bit aarch64 ✅ |
+| 3.4 | 传到 RK：网线 scp 或 U 盘 cp（**不要走串口**，FIQ 劫持） |
+| 3.5 | md5 校验后 `cp → /myApp/tof3/qt_display/qt_display` + `/etc/init.d/S96tof_display restart` |
+| 3.6 | 验证 qt_display log `read frame seq=` 涨速 ≈ 10/s + paintEvent 频率提升 |
 
 ### Phase 4 — 端到端验证 + commit（~5 min）
 
