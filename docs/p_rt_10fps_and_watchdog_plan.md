@@ -113,25 +113,29 @@ USB 设备短暂 disconnect → reconnect 让 device number 变化，`libUSB2UAR
 | 2.2 | sftp 推 → sudo cp 到 `/etc/systemd/system/` → daemon-reload → restart tof-acquisition |
 | 2.3 | 验证：ExampleTOF journal seq 涨速 ~10/s；spi_syncer journal `last_seq` 跟上、`dropped=0` |
 
-### Phase 3 — qt_display setInterval 50→16（⚠️ DEFERRED）
+### Phase 3 — qt_display setInterval 50→16 ✅ 完成（2026-06-01）
 
-**状态（2026-06-01）**：代码已改、本机交叉编译产物 ✅，但 **RK3568 串口部署受阻**，待用网线/U 盘部署。
-- ✅ `rk3568/qt_display/mainwindow.cpp:47` setInterval(50)→16 已 commit
-- ✅ 本机交叉编译 `qt_display` 58 KB aarch64 ELF（md5 `37bcf80b…`）
-- ❌ 串口传输：gzip+base64 24.7 KB → 25 chunks × 1000 B，每 ~8 chunks 后 **Rockchip FIQ Debugger 劫持 console**，传输被吞，多次重试只能稳定送达约 8 KB。详见 `docs/rk3568_connection.md` § FIQ Debugger 踩坑。
-- ⏸ 暂跳过：50 ms timer 在 10 fps 数据下仍有 2× 富余（上限 20 fps），不阻塞链路；只是屏端平均延迟多 ~9 ms。
-- 📋 后续：方便时 RK 临时插网线 scp 或 U 盘拷贝部署，一次 `cp + S96 restart` 完成。
+**经历**：本机交叉编译 + 串口部署失败（Rockchip FIQ Debugger 反复劫持 console，CH340 长流量伪 break 触发，25 chunks 只能稳传 ~8 个）→ 改 U 盘 vfat 分区部署成功。
 
-原计划步骤（保留供未来部署用）：
+**关键经验**：
+- RK3568 文件系统**只支持 vfat，不支持 exfat**。Ventoy U 盘要用其 VTOYEFI 分区（vfat 32 MB）不是主 Ventoy 分区（exfat）。
+- 替换正在运行的 ELF 报 `Text file busy`，必须先 `S96 stop` 释放文件锁、cp、`S96 start`，不能用 `restart`（restart = stop + start，但 stop 和 cp 之间有窗口被旧进程占住）。
+- 不要在替换流程里嵌套 `if/fi` + 双引号 + 变量插值——CH340 串口下复合命令易解析炸。分步原子命令更稳。
+- U 盘插 RK 后会被自动 mount 到 `/media/udisk0`（不是 `/mnt`）。
 
-| 步骤 | 动作 |
-|---|---|
-| 3.1 | 改 `rk3568/qt_display/mainwindow.cpp:47` setInterval(50) → 16 ✅ |
-| 3.2 | 本机交叉编译：`$SDK/host/bin/qmake qt_display.pro && make -j4`，SDK=`~/rk3568_linux_sdk/buildroot/output/rockchip_rk3568` ✅ |
-| 3.3 | `file qt_display` 校验 = ELF 64-bit aarch64 ✅ |
-| 3.4 | 传到 RK：网线 scp 或 U 盘 cp（**不要走串口**，FIQ 劫持） |
-| 3.5 | md5 校验后 `cp → /myApp/tof3/qt_display/qt_display` + `/etc/init.d/S96tof_display restart` |
-| 3.6 | 验证 qt_display log `read frame seq=` 涨速 ≈ 10/s + paintEvent 频率提升 |
+**实际部署步骤**：
+
+| 步骤 | 动作 | 结果 |
+|---|---|---|
+| 3.1 | 改 `rk3568/qt_display/mainwindow.cpp:47` setInterval(50) → 16 | ✅ |
+| 3.2 | 本机交叉编译 `$SDK/host/bin/qmake && make -j4` | ✅ ELF 58 KB md5 `37bcf80b…` |
+| 3.3 | `file` 校验 ELF 64-bit aarch64 | ✅ |
+| 3.4 | 本机 `cp qt_display /media/ding/VTOYEFI/`（vfat 分区，不是 exfat 主分区）+ `sync` | ✅ |
+| 3.5 | U 盘插 RK：自动 mount 到 `/media/udisk0/qt_display` | ✅ |
+| 3.6 | `/etc/init.d/S96tof_display stop` 释放文件锁 → `cp /media/udisk0/qt_display /myApp/tof3/qt_display/qt_display` → `chmod +x` | ✅ |
+| 3.7 | 目标位置 md5 校验匹配本机 | ✅ `37bcf80b…` |
+| 3.8 | `/etc/init.d/S96tof_display start` + 看 log | ✅ PID 2561，paintEvent 启动、read frame seq 持续 |
+| 3.9 | `umount /media/udisk*` 后拔 U 盘 | ✅ |
 
 ### Phase 4 — 端到端验证 + commit（~5 min）
 
