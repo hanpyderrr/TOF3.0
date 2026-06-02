@@ -17,11 +17,12 @@
 
 set -eu
 
-SDK_ROOT="${PF32_SDK_DIR:-$HOME/pf32/c++_sample_linux-1.5.21}"
-RT_ROOT="${TOF3_RT_DIR:-$HOME/tof3-rt}"
+SDK_ROOT="${PF32_SDK_DIR:-$HOME/sdks/pf32/c++_sample_linux-1.5.21}"
+RT_ROOT="${TOF3_RT_DIR:-$HOME/projects/TOF3.0/nezha}"
 
 FW_SRC="$SDK_ROOT/Firmware"
 FW_LINK="$HOME/Firmware"
+FW_LINK2="$HOME/projects/Firmware"
 
 SRC_SRC="$SDK_ROOT/PhotonForce/source"
 SRC_LINK="$RT_ROOT/source"
@@ -52,6 +53,7 @@ ensure_symlink() {
 
 mkdir -p "$RT_ROOT"
 ensure_symlink "$FW_SRC"  "$FW_LINK"
+ensure_symlink "$FW_SRC"  "$FW_LINK2"
 ensure_symlink "$SRC_SRC" "$SRC_LINK"
 
 # 最终自检：从默认 cwd 出发能 resolve 到真实文件

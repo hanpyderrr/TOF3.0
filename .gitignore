@@ -33,6 +33,12 @@ AI_HANDOFF.md
 *.so
 *.out
 acquisition/sim_pf32
+nezha/acquisition/ExampleTOF
+nezha/acquisition/sim_pf32
+
+# 运行时符号链接（SDK 路径依赖本机，不入库）
+Firmware
+nezha/source
 rk3568/legacy/RK3568使用SPI接收数据代码/spi_rev_slavemyloop
 
 # Qt build (RK3568 legacy)

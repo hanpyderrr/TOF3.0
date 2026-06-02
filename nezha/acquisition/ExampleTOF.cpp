@@ -271,6 +271,7 @@ int main(int /*argc*/, char ** /*argv*/)
     fprintf(stderr, "ExampleTOF: started integration=%.2fs raw=%s\n",
             opts.integrationSec, rawActive ? "on" : "off");
 
+    bool firstFrame = true;
     while (g_run) {
         uint64_t t0 = nowMs();
         bool ok = getHistogram_short(pf32, hist, opts.integrationSec);
@@ -280,6 +281,12 @@ int main(int /*argc*/, char ** /*argv*/)
             continue;
         }
         uint64_t tHist = nowMs();
+
+        if (firstFrame) {
+            fprintf(stderr, "ExampleTOF: first frame ok — sync=%dHz duty=%.3f exposure_us=%.1f\n",
+                    getSync_Hz(pf32), getSyncDutyRatio(pf32), getExposure_us(pf32));
+            firstFrame = false;
+        }
 
         /* raw .tch 全量存档 */
         if (rawActive) writeRawTch(rawSession, seq, hist);
