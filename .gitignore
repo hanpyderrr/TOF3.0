@@ -23,6 +23,8 @@ AI_HANDOFF.md
 *.db
 *.dat
 *.npy
+# 深度帧采样（入库，用于验证和分析）
+!data/depth_samples/*.dat
 
 # Logs
 *.log
