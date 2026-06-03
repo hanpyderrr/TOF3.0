@@ -180,3 +180,28 @@ TOF3.0/
 - 详细算法思路：`docs/active_modulation_separation_algorithm.md`
 - 早期思考（部分被推翻，留档）：`docs/rk3568_reintegration_architecture.md`
 - 完整架构：`ARCHITECTURE.md`
+
+## 已踩坑（2026-06-03，避免重复）
+
+### 哪吒侧
+
+1. **不要 `killall ExampleTOF`**：`tof-acquisition.service` 设了 `Restart=always`，kill 后 2s 内 systemd 会拉起新实例抢占 PF32。停采集必须用 `sudo systemctl stop tof-acquisition`；临时改参数用 `systemctl edit` 或 override drop-in，改完后 `systemctl restart`。
+
+2. **`/tmp/depth.dat` 不是原始数据**：它是已处理的 TofFrame（每像素 uint16 mm 深度值，2070B）。原始 TCSPC 直方图是 `~/tof-data/raw_tcspc/<session>/seq_NNNNNN.tch`（2.1MB/帧，32×32×1024 bin）。服务默认 `TOF_RAW_ENABLE=0`，采原始数据前需先开启。
+
+3. **PF32 ctypes restype 必须用 `POINTER(c_void_p)`**：`PF32_construct` 返回的是指针的指针，用 `c_void_p` 做 restype 会导致调用崩溃或返回 null。
+
+4. **左侧深度图全蓝不是 bug**：场景里只有远处背景（8440mm）时 jet colormap norm≈1.0 → 纯蓝，右侧 VALID 全白表示测距正常。近物（<3000mm）才会出现红/橙色。
+
+5. **`.gitignore` 例外规则必须在原规则之后**：`!data/depth_samples/*.tch` 必须放在 `*.tch` 行**之后**，否则后面的通配符规则会覆盖例外，`git add` 拒绝文件。
+
+### RK3568 侧
+
+6. **cdc_acm 驱动持续抢占 USB-SPI 适配器（0483:5740）**：`spi_receiver` 退出后内核立即将 interface 2-1:1.0 / 2-1:1.1 重新绑定到 `cdc_acm`，下次启动报 `ConfigSPIParamSlave=-3`。每次启动前必须手动 unbind：
+   ```bash
+   echo 2-1:1.0 > /sys/bus/usb/drivers/cdc_acm/unbind
+   echo 2-1:1.1 > /sys/bus/usb/drivers/cdc_acm/unbind
+   ```
+   永久方案（**待做**）：在 `S95tof_spi_receiver` 里加上述两行，或写 udev 规则阻止 cdc_acm 绑定该 VID/PID。
+
+7. **多个 `spi_receiver` 同时跑会互相竞争**：屏幕变暗后不要直接重启，先 `killall spi_receiver` 确认只剩一个实例，再 unbind cdc_acm，再启动。
