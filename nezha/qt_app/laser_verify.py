@@ -137,7 +137,7 @@ def main() -> int:
         print("\n[1] 读取当前参数 (func=0x06)...")
         frame = build_frame(FUNC_READ, 0)
         print(f"  发送: {frame.hex(' ').upper()}")
-        resp = send_recv(ser)
+        resp = send_recv(ser, frame)
         parse_read_response(resp)
 
         # 2. 可选：设置电压等级

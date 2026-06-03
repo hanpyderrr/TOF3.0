@@ -5,6 +5,7 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QGuiApplication>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QPalette>
 #include <QScreen>
@@ -22,17 +23,41 @@ MainWindow::MainWindow(const QString &framePath, QWidget *parent)
     central->setPalette(centralPalette);
     central->setAutoFillBackground(true);
 
-    auto *layout = new QVBoxLayout(central);
+    auto *vLayout = new QVBoxLayout(central);
 
-    m_depth = new DepthWidget(central);
+    // 左右两栏：深度图（伪彩色） + 有效像素图（灰度）
+    auto *hLayout = new QHBoxLayout;
+    m_depth    = new DepthWidget(central);
+    m_validity = new DepthWidget(central);
+
+    auto makeLabel = [&](const QString &text) {
+        auto *w = new QWidget(central);
+        auto *l = new QVBoxLayout(w);
+        l->setContentsMargins(0, 0, 0, 0);
+        l->setSpacing(2);
+        auto *lbl = new QLabel(text, w);
+        lbl->setStyleSheet("font-size:14px; color:#aaa; background:transparent;");
+        lbl->setAlignment(Qt::AlignCenter);
+        l->addWidget(lbl, 0);
+        return w;
+    };
+    auto *leftPane  = makeLabel(QStringLiteral("DEPTH"));
+    auto *rightPane = makeLabel(QStringLiteral("VALID"));
+    static_cast<QVBoxLayout *>(leftPane->layout())->addWidget(m_depth, 1);
+    static_cast<QVBoxLayout *>(rightPane->layout())->addWidget(m_validity, 1);
+
+    hLayout->addWidget(leftPane,  1);
+    hLayout->addWidget(rightPane, 1);
+    hLayout->setSpacing(4);
+
     m_status = new QLabel(QStringLiteral("waiting for depth frame"), central);
     m_status->setStyleSheet("font-size:16px; color:#ddd; background:#222; padding:4px;");
     m_status->setAlignment(Qt::AlignCenter);
 
-    layout->addWidget(m_depth, 1);
-    layout->addWidget(m_status, 0);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(0);
+    vLayout->addLayout(hLayout, 1);
+    vLayout->addWidget(m_status, 0);
+    vLayout->setContentsMargins(0, 0, 0, 0);
+    vLayout->setSpacing(0);
     setCentralWidget(central);
 
     const QList<QScreen *> screens = QGuiApplication::screens();
@@ -73,6 +98,7 @@ void MainWindow::onTimer()
     m_lastSeq = f.seq;
     m_haveLast = true;
     m_depth->updateDepth(f.depths, 1024);
+    m_validity->updateValidity(f.depths, 1024);
     qInfo() << "qt_display: read frame from received.dat seq =" << f.seq
             << "valid =" << f.validCount;
 

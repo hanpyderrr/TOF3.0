@@ -5,7 +5,7 @@
 | 文件 | 简介 | 笔记 |
 |------|------|------|
 | `PF32 Manual.pdf` | PF32 SPAD 探测器完整用户手册（硬件、固件、API、操作说明） | 未读 |
-| `PF32 Manual的全文翻译.pdf` | 上述手册中文全文翻译 | 未读 |
+| `PF32 Manual的全文翻译.pdf` | 上述手册中文全文翻译 | ✅ 已读，见同名 `.md` |
 | `PF32 Quick Start Guide.pdf` | PF32 快速上手指南（连接、固件加载、首次采集） | 未读 |
 | `PF32 Quick Start Guide的全文翻译.pdf` | 上述快速指南中文全文翻译 | 未读 |
 | `pf32API.pdf` | PF32 C/C++ & Python API 参考（函数签名、TCSPC 模式、数据格式） | 未读 |

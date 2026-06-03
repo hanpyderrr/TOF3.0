@@ -25,8 +25,9 @@ private slots:
 
 private:
     QString      m_framePath;
-    DepthWidget *m_depth = nullptr;
-    QLabel      *m_status = nullptr;
+    DepthWidget *m_depth    = nullptr;
+    DepthWidget *m_validity = nullptr;
+    QLabel      *m_status   = nullptr;
     QTimer      *m_timer = nullptr;
 
     uint32_t m_lastSeq = 0;

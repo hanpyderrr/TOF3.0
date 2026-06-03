@@ -1,14 +1,13 @@
 # spi_receiver 交叉/本机编译
-# 默认 aarch64（部署到 RK3568），用 ~/rk3568_linux_sdk Buildroot 工具链。
+# 默认 aarch64（部署到 RK3568），用系统 aarch64-linux-gnu-gcc（apt 安装）。
 # 本机联调： make ARCH=x86_64   （运行需 LD_LIBRARY_PATH=deps/x86_64）
 
 ARCH    ?= aarch64
-SDK     ?= $(HOME)/rk3568_linux_sdk/buildroot/output/rockchip_rk3568
 CFLAGS  ?= -O2 -Wall -Wextra
 TARGET   = spi_receiver
 
 ifeq ($(ARCH),aarch64)
-  CC     = $(SDK)/host/bin/aarch64-buildroot-linux-gnu-gcc
+  CC     = aarch64-linux-gnu-gcc
   LIBDIR = deps/aarch64
 else
   CC     = gcc

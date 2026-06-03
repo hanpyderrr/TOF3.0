@@ -1,7 +1,28 @@
 # 工作进度
 
-> 最后更新：2026-05-30
+> 最后更新：2026-06-03
 > 主控：Claude Sonnet 4.6
+
+---
+
+## 2026-06-03 — PF32 TRIG 排查：固件缺失确认
+
+**背景**：激光设为外触发后不亮，排查 PF32 是否出 TRIG 信号。
+
+**排查过程**：
+1. ExampleTOF 正在运行，PF32 USB 连接正常（XEM6310-LX150，serial 352）
+2. 示波器探 TRIG SMA 口：**无信号**
+3. Python 直调 1.5.21 C API，等 link_status=2 后再 setMode(TCSPC_sys_master) + setEXTSTOPEnable(true)：
+   - extstop 读回 True，link_status 正常到达 2
+   - getHistogram_short ok=True，counts=2500/帧（正常暗计数）
+   - **peak_bin 全为 0**：有光子计数但无 TDC 时间信息，所有计数堆在 bin 0
+   - sync=0Hz（采集前后均为 0）
+
+**结论**：`PF32_USB3.bit` 是光子计数（photon counting）流固件，不实现 TDC 时间测量，FPGA 无 TRIG 输出电路。`setMode(sys_master)` 被 SDK 接受但无硬件效果。
+
+**解决方案**：需向 Photon Force 索取 XEM6310 对应的 histogramming 固件（类似 `PF32_USB3_Histogramming.bit`）。邮件要点：PF32 USB3，XEM6310-LX150，serial 352，需 sys_master TRIG 输出。
+
+**当前阻塞**：🔴 P7 真实 PF32 联调被此问题阻塞，激光无法外触发工作。
 
 ---
 

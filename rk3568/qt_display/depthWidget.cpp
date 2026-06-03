@@ -48,6 +48,24 @@ QRgb DepthWidget::depthToColor(float norm)
                 static_cast<int>(b * 255));
 }
 
+void DepthWidget::updateValidity(const uint16_t *depths, int count)
+{
+    if (count != SENSOR_W * SENSOR_H) return;
+    g_hasDepthFrame = true;
+
+    for (int row = 0; row < SENSOR_H; ++row) {
+        for (int col = 0; col < SENSOR_W; ++col) {
+            int pixIdx = (SENSOR_H - 1 - row) * SENSOR_W + col;
+            // 近距离亮（白），远距离暗，无效黑——让用户一眼看到反射强弱
+            // 有效像素（有光子返回）= 白，无返回 = 黑
+            uint16_t d = depths[pixIdx];
+            int v = (d > 0) ? 255 : 0;
+            m_image.setPixel(col, row, qRgb(v, v, v));
+        }
+    }
+    update();
+}
+
 void DepthWidget::updateDepth(const uint16_t *depths, int count)
 {
     if (count != SENSOR_W * SENSOR_H) return;
