@@ -77,6 +77,8 @@ nezha/algorithm/out/
 # TCSPC raw + 深度本地存档（数据,不入库）
 *.tch
 *.tofrec
+# 采样例外（入库，用于验证和分析）
+!data/depth_samples/*.tch
 
 # ml_offline 离线训练产物 + 本地数据缓存（README/schema 保留,数据不入库）
 ml_offline/runs/
