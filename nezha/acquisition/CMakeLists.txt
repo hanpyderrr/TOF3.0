@@ -6,7 +6,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread")
 # PF32 SDK 所在目录（.h 和 .so 文件）。
 # 用 1.5.21 而非 1.5.23：1.5.23 的 libPF32_API.so 需 GLIBCXX_3.4.32（GCC 13+），
 # 哪吒系统 g++ 11.4（libstdc++ 3.4.30）链接失败；1.5.21 仅需 3.4.21，匹配。
-set(PF32_SDK_DIR /home/ding/pf32/c++_sample_linux-1.5.21/PhotonForce/Linux)
+set(PF32_SDK_DIR /home/ding/sdks/pf32/c++_sample_linux-1.5.21/PhotonForce/Linux)
 
 include_directories(${PF32_SDK_DIR})
 link_directories(${PF32_SDK_DIR})

@@ -1,14 +1,15 @@
 # TOF 单光子 3.0 架构文档
 
-> 版本：2026-05-19（按已锁定决策重写）
+> 版本：2026-05-19（按已锁定决策重写）；2026-06-12 更新 TCSPC 同步方案
 > 决策：双机协作——哪吒负责采集/算法/本地全量存档，RK3568 负责**实时 Qt MIPI 深度显示** + 电机控制 +（日后）5G 上行
 >
-> ✅ 已锁定（2026-05-19）：
+> ✅ 已锁定（2026-05-19；⑥ 2026-06-12 更新）：
 > ① **RK3568 屏幕实时 Qt MIPI 显示深度图**（硬需求；v1.0 单光子已在 RK3568 跑过 Qt 显示）；
 > ② 深度帧（2KB）走 **SPI 实时流**；原始 TCSPC（2MB）只在**哪吒本地存档**；
 > ③ **RK3568 经 5G 上云（raw+depth）本阶段暂缓**，日后稳定再加；
 > ④ SPI 接收走 **USB转SPI 适配器**（非 RK3568 原生 SPI），物理链路已实测可用；
-> ⑤ 电机 **RK3568 直连 STM32 串口**（非经 SPI CMD=0x06）。
+> ⑤ 电机 **RK3568 直连 STM32 串口**（非经 SPI CMD=0x06）；
+> ⑥ **TCSPC 同步：laser_master + Si5351A**。PF32 sys_master TRIG SMA 硬件故障（SDK 1.5.21/1.5.25 均确认无输出），用 Si5351A 时钟芯片（哪吒 I²C 控制）CLK0→激光 P3 外触发、CLK1→PF32 SYNC SMA（+3.3V，50Ω），500 kHz。
 >
 > 本文与 `docs/rk3568_framework.md` 一致；早期 `docs/rk3568_reintegration_architecture.md` 仅留档。
 
@@ -29,16 +30,20 @@
 ## 二、硬件拓扑
 
 ```
-PF32 探测器（32×32 SPAD，TCSPC，sys_master）
+Si5351A 时钟芯片（哪吒 I²C pin3/5 控制，500 kHz，<200 ps 抖动）
+    ├── CLK0 ──→ 激光 YSC-SO-M04-4 P3 外触发（TTL SMA）
+    └── CLK1 ──→ PF32 SYNC SMA（+3.3V peak，50Ω）
+
+PF32 探测器（32×32 SPAD，TCSPC laser_master，SYNC 输入作 TDC stop）
     │ USB（Opal Kelly FPGA）→ 哪吒
-    │ TRIG 输出（TTL）→ 激光器外触发；PF32 内部 EXTSTOP 做 stop（反向 start-stop）
-激光驱动器（YSC-SO-M04-4，Modbus RTU；PF32 外触发，频率随 PF32 TRIG）
-    │ USB-UART → 哪吒 /dev/ttyUSB0
-    │
+
+激光驱动器（YSC-SO-M04-4，Modbus RTU；Si5351A CLK0 外触发）
+    │ UART → 哪吒 CN3 pin8/10（3.3V TTL，电平转换）
+
 哪吒 NUC（Intel N97，x86_64，Ubuntu；生产环境无网络）
     │ /dev/spidev1.0 → SPI master（MODE0，1.125MHz）原生引脚
     ▼
-USB转SPI 适配器模块（STM32，USB ID 0483:5740）
+USB转SPI 适配器模块（STM32，USB ID 0483:5740）接线见 refs/usb_spi/
     │ USB
 RK3568（aarch64，Buildroot，内核 4.19，有 Qt + MIPI 屏，有 5G）
     │ 适配器做 SPI slave（libUSB2UARTSPIIIC）

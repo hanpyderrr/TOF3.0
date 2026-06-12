@@ -15,7 +15,7 @@ TOF 单光子 3.0：双机协作架构。
 3. **RK3568 经 5G 上云（raw+depth）本阶段暂缓**，日后稳定再加；`rk3568/cloud_syncer`（已实现+e2e 过）保留不动归暂缓阶段。
 4. SPI 接收走 **USB转SPI 适配器**（USB ID 0483:5740，非 RK3568 原生 SPI），物理链路已实测可用。
 5. 电机 **RK3568 直连 STM32 串口**（19200 8N1，非经 SPI CMD=0x06）。
-6. **TCSPC 同步模式：laser_master**（2026-06-03 确认）。PF32 sys_master TRIG SMA 输出硬件故障（无信号，SDK 1.5.21/1.5.25 均排查无效），改用信号发生器同时驱动激光 P3 和 PF32 SYNC SMA（+3.3V peak，50Ω）；ExampleTOF.cpp 已切换至 `setMode(TCSPC_laser_master)`。
+6. **TCSPC 同步模式：laser_master**（2026-06-03 确认）。PF32 sys_master TRIG SMA 输出硬件故障（无信号，SDK 1.5.21/1.5.25 均排查无效），改用外部时钟同时驱动激光 P3 外触发和 PF32 SYNC SMA（+3.3V peak，50Ω）；ExampleTOF.cpp 用 `setMode(TCSPC_laser_master)`。同步源：**Si5351A 时钟芯片**（接哪吒 I²C，CLK0→激光 P3，CLK1→PF32 SYNC，替代台式信号发生器）；推荐频率 500 kHz（激光上限 1 MHz，TDC 窗口 56.3 ns 远小于 2 µs 周期）。
 
 > 完整架构见 `ARCHITECTURE.md`；RK3568 侧权威设计见 `docs/rk3568_framework.md`。
 
@@ -26,7 +26,8 @@ TOF 单光子 3.0：双机协作架构。
 | 哪吒 SBC | **AAEON「哪吒」开发套件**（Intel N97 / Alder Lake-N，x86_64 嵌入式 SBC，仿树莓派 85×56mm），Ubuntu，**生产无网络**。**40-pin HAT GPIO** + 10-pin USB/UART wafer（CN7）+ HDMI + 3×USB3 + 1GbE。HAT UART 在 CN3 pin 8 (TX) / pin 10 (RX)，3.3V TTL。规格 `refs/hardware/AAEON_哪吒_用户手册_含pinout.pdf` | SSH: ding/1234（调试期） |
 | RK3568 | **ATK-DLRK3568 改版底板**（基于 V1.5），aarch64，Buildroot，内核 4.19，**有 5G** | 串口 /dev/ttyUSB0@1500000；USB 接 SPI 适配器 |
 | PF32 探测器 | 32×32 SPAD，TCSPC，55ps/bin，TCSPC **laser_master**（SYNC 输入驱动时序） | USB（Opal Kelly）→ 哪吒 |
-| 激光驱动器 | YSC-SO-M04-4，Modbus RTU 9600 8N1（**激光侧 5V TTL**），**信号发生器外触发** | 推荐 **哪吒 HAT CN3 pin 8/10 UART** + 5V↔3.3V 电平转换板 → 激光 TTL 串口；外触发 P3 ← 信号发生器（同轴）；PF32 SYNC SMA ← 同一信号发生器（+3.3V peak，50Ω，同轴） |
+| 激光驱动器 | YSC-SO-M04-4，Modbus RTU 9600 8N1（**激光侧 5V TTL**），**Si5351A 外触发** | **哪吒 HAT CN3 pin 8/10 UART** + 5V↔3.3V 电平转换板 → 激光 TTL 串口；外触发 P3 ← Si5351A CLK0；PF32 SYNC SMA ← Si5351A CLK1（+3.3V peak，50Ω） |
+| Si5351A 时钟芯片 | 可编程时钟，8 kHz–160 MHz，3 路输出，I²C 控制，抖动 <200 ps | 哪吒 HAT I²C（pin 3=SDA / pin 5=SCL）→ Si5351A；CLK0→激光 P3；CLK1→PF32 SYNC SMA |
 | STM32F103C8T6 | 调焦电机控制 + 板内串口桥，**焊死在改版底板**（不再外挂模块） | USART1 → RK3568 **`/dev/ttyS4`**（JP2 短接 3-5/4-6，19200 8N1） |
 | TMC2209 ×2 | 步进电机驱动，**直接焊在改版底板** | STM32 GPIO → MOTOR1（调焦滑台）/ MOTOR2（光圈齿轮） |
 | USB转SPI 适配器 | STM32 方案，USB ID 0483:5740 | 哪吒 SPI 引脚 ↔ 适配器，适配器 USB ↔ RK3568 |
@@ -131,11 +132,11 @@ TOF3.0/
 
 - `depth_proto.h`：TofFrame (2070B)，与 TOF 1.0 协议兼容
 - PF32 **反向 start-stop**：`distance = (1023 - bin) × 55ps × c/2`
-- PF32 跑 **TCSPC laser_master**（2026-06-03 切换，sys_master TRIG 输出硬件故障无信号）：信号发生器同时驱动激光 P3（外触发）和 PF32 SYNC SMA（+3.3V peak，50Ω），PF32 以 SYNC 作为 TDC 时序参考；`refs/pf32/docs/SyncInput_3300mV.pdf` 是本项目 SYNC 接线规范
+- PF32 跑 **TCSPC laser_master**（2026-06-03 切换，sys_master TRIG 输出硬件故障无信号）：**Si5351A 时钟芯片**（接哪吒 I²C）CLK0 驱动激光 P3 外触发、CLK1 驱动 PF32 SYNC SMA（+3.3V peak，50Ω），两路相位锁定，PF32 以 SYNC 作为 TDC 时序参考；`refs/pf32/docs/SyncInput_3300mV.pdf` 是本项目 SYNC 接线规范；推荐频率 500 kHz
 - 哪吒**生产无网络**；深度图实时显示在 **RK3568 MIPI 屏**（哪吒 HDMI 仅开发可选）
 - 深度帧走 **SPI 实时流**；原始 TCSPC 只哪吒本地存档；**5G 上云暂缓**
 - SPI 传输失败不阻塞采集，数据继续本地积累
-- 激光控制 **留在哪吒**（FeedbackController 实时闭环，不过 SPI）。激光工作在**信号发生器外触发模式**（信号发生器 → 激光 P3 + PF32 SYNC）：重复频率由信号发生器决定，激光 `setFreqHz` 在外触发下无效，闭环只调电平/功率
+- 激光控制 **留在哪吒**（FeedbackController 实时闭环，不过 SPI）。激光工作在 **Si5351A 外触发模式**（Si5351A CLK0→激光 P3，CLK1→PF32 SYNC）：重复频率由 Si5351A 决定（启动时 I²C 配置一次），激光 `setFreqHz` 在外触发下无效，闭环只调电平/功率
 - 电机控制 **在 RK3568，板内 STM32 + TMC2209**（改版底板焊死）；UART4/`ttyS4` 是 STM32 ↔ RK3568 通道（JP2 跳线短接 3-5/4-6）。哪吒 `motoruart` 为过渡实现，最终迁出
 - SPI 接收走 **USB转SPI 适配器**（非 RK3568 原生 SPI）
 

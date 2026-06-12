@@ -6,8 +6,9 @@
  *     ├─ pd_bin_to_depth → TofFrame(2070B) → /tmp/depth.dat（实时，给 qt_app）
  *     └─ 28B header + 2MB payload → ~/tof-data/raw_tcspc/<session>/seq_NNNNNN.tch（本地全量存档）
  *
- * 配置：TCSPC_sys_master 模式（PF32 内部时钟产生 TRIG 输出，驱动激光外触发）；
- * PF32 TRIG 引脚 → 激光外触发输入；PF32 SYNC SMA 不需要外部信号。
+ * 配置：TCSPC_laser_master 模式（外部信号发生器同时触发激光和 PF32）；
+ * 信号发生器 → 激光 P3 外触发 + 信号发生器 → PF32 SYNC SMA（+3.3V peak，50Ω）。
+ * 注：sys_master TRIG SMA 输出硬件故障（无信号，SDK 1.5.21/1.5.25 均确认），故用此方案。
  * 距离换算：dist_mm = (1023 - peak_bin) × 55ps × c/2 ≈ (1023 - bin) × 8.25mm。
  *
  * 环境变量（可选，与 sim_pf32 一样保持零参数也能跑）：
@@ -228,17 +229,15 @@ int main(int /*argc*/, char ** /*argv*/)
     PF32_conn_status st = getLinkStatus(pf32);
     fprintf(stderr, "ExampleTOF: link status=%d (ready=2, 0/1 也属正常瞬态)\n", (int)st);
 
-    /* 3. 配置 TCSPC sys_master 序列（1.5.21 SDK）：
+    /* 3. 配置 TCSPC laser_master 序列（1.5.21 SDK）：
      *   - setDataSource(sensor_data)：用真实 SPAD 数据
      *   - setSPADEnable(true)：使 SPAD 阵列工作
-     *   - setMode(TCSPC_sys_master)：PF32 内部时钟产生 TRIG 输出驱动激光
-     *   - setEXTSTOPEnable(true)：启用内部 EXTSTOP 作为 TDC stop（sys_master 必需）
-     *   - setExposure_us：单次 TDC 测量窗口宽度（200us ≈ 30m 量程）
+     *   - setMode(TCSPC_laser_master)：外部 SYNC 输入驱动 PF32 时序
+     *   - setExposure_us：单次 TDC 测量窗口宽度（200us）
      */
     setDataSource(pf32, sensor_data);
     setSPADEnable(pf32, true);
-    setMode(pf32, TCSPC_sys_master);
-    setEXTSTOPEnable(pf32, true);
+    setMode(pf32, TCSPC_laser_master);
     setExposure_us(pf32, 200.0);
 
     unsigned int width  = getWidth(pf32);
